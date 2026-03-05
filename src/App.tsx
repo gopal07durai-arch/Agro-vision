@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Chat } from './components/Chat';
 
 function App() {

@@ -291,7 +291,15 @@ export class ConversationManager {
       const detectedCrop = this.extractCropName(analysisResult);
       const detectedDisease = this.extractDiseaseName(analysisResult);
 
-      if (detectedCrop && this.isSupportedCrop(detectedCrop)) {
+      // Check if the response indicates an unsupported crop
+      if (analysisResult.toLowerCase().includes('unsupported crop') || 
+          analysisResult.toLowerCase().includes('not supported') ||
+          analysisResult.toLowerCase().includes('not in the supported')) {
+        await this.updateState('awaiting_image');
+        const response = 'This is an unsupported crop. Please upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, or Tomato.';
+        await this.addMessage('assistant', response);
+        return response;
+      } else if (detectedCrop && this.isSupportedCrop(detectedCrop)) {
         await this.updateCropData(detectedCrop, detectedDisease || 'Unknown');
         await this.updateState('collecting_soil_type');
 
@@ -310,7 +318,7 @@ export class ConversationManager {
         return analysisResult;
       } else {
         await this.updateState('awaiting_image');
-        const response = `${analysisResult}\n\nPlease upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), or Cotton.`;
+        const response = `${analysisResult}\n\nPlease upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, or Tomato.`;
         await this.addMessage('assistant', response);
         return response;
       }

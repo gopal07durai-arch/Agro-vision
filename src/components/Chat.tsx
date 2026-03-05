@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { Translator } from './Translator';
 import { ConversationManager } from '../lib/conversationManager';
 import { Message } from '../lib/supabase';
 import { Sprout } from 'lucide-react';
@@ -95,7 +96,7 @@ I can help you identify crop diseases and recommend fertilizers.
 📌 Please upload a clear crop leaf image taken in good lighting.
 
 Supported crops:
-Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton.`,
+Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, Tomato.`,
             timestamp: Date.now(),
           };
 
@@ -177,14 +178,17 @@ Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggpl
       {/* HEADER */}
       <header className="bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg">
-              <Sprout size={28} />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <Sprout size={28} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Farmer AI Chatbot</h1>
+                <p className="text-sm text-green-100">Your Smart Farming Assistant</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">Farmer AI Chatbot</h1>
-              <p className="text-sm text-green-100">Your Smart Farming Assistant</p>
-            </div>
+            <Translator />
           </div>
         </div>
       </header>

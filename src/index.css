@@ -11,3 +11,19 @@
     transform: translateX(0);
   }
 }
+
+body {
+  top: 0 !important;
+}
+
+.VIpgJd-ZVi9od-ORHb-OEVmcd {
+  display: none !important;
+}
+
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+#goog-gt-tt {
+  display: none !important;
+}
