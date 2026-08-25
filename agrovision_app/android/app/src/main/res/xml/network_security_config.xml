@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    network_security_config.xml
+    ============================
+    Production: Strict HTTPS only for public cloud communication.
+    Debug overrides: Permits cleartext traffic only during development.
+-->
+<network-security-config>
+    <!-- Base Production Configuration: Strict HTTPS (TLS) Only -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Development / Debug Overrides -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

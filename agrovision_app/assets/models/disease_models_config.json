@@ -1,0 +1,172 @@
+{
+  "disease_threshold": 50.0,
+  "models": {
+    "Blackgram": {
+      "file": "blackgram.keras",
+      "tflite_file": "blackgram.tflite",
+      "size": 224,
+      "norm": "0_255",
+      "classes": [
+        "Anthracnose",
+        "Healthy",
+        "Leaf Crinkle",
+        "Powdery Mildew",
+        "Yellow Mosaic"
+      ]
+    },
+    "Cotton": {
+      "file": "cotton.keras",
+      "tflite_file": "cotton.tflite",
+      "size": 224,
+      "norm": "0_255",
+      "classes": [
+        "Aphids",
+        "Army Worm",
+        "Bacterial Blight",
+        "Healthy",
+        "Powdery Mildew",
+        "Target Spot"
+      ]
+    },
+    "Eggplant": {
+      "file": "eggplant.keras",
+      "tflite_file": "eggplant.tflite",
+      "size": 224,
+      "norm": "0_255",
+      "classes": [
+        "Healthy",
+        "Insect Pest",
+        "Leaf Spot",
+        "Mosaic Virus",
+        "Small Leaf",
+        "White Mold",
+        "Wilt Disease"
+      ]
+    },
+    "Groundnut": {
+      "file": "groundnut.keras",
+      "tflite_file": "groundnut.tflite",
+      "size": 150,
+      "norm": "0_1",
+      "classes": [
+        "early_leaf_spot_1",
+        "early_rust_1",
+        "healthy_leaf_1",
+        "late_leaf_spot_1",
+        "nutrition_deficiency_1",
+        "rust_1"
+      ],
+      "class_map": {
+        "early_leaf_spot_1": "Leaf Spot",
+        "early_rust_1": "Rust",
+        "healthy_leaf_1": "Healthy",
+        "late_leaf_spot_1": "Late Leaf Spot",
+        "nutrition_deficiency_1": "Nutrition Deficiency",
+        "rust_1": "Rust"
+      }
+    },
+    "Paddy": {
+      "file": "paddy.keras",
+      "tflite_file": "paddy.tflite",
+      "size": 224,
+      "norm": "0_1",
+      "classes": [
+        "Leaf Blight",
+        "Brown Spot",
+        "Healthy",
+        "Leaf Blast",
+        "Leaf Scald",
+        "Sheath Blight"
+      ]
+    },
+    "Sugarcane": {
+      "file": "sugarcane.keras",
+      "tflite_file": "sugarcane.tflite",
+      "size": 224,
+      "norm": "0_255",
+      "classes": [
+        "Healthy",
+        "Red Rot",
+        "Red Rust"
+      ]
+    },
+    "Sunflower": {
+      "file": "sunflower.keras",
+      "tflite_file": "sunflower.tflite",
+      "size": 224,
+      "norm": "0_1",
+      "classes": [
+        "alternaria sunflower",
+        "downy mildew sunflower",
+        "healthy sunflower",
+        "healthy wheat",
+        "mosaic wheat",
+        "powdery mildew sunflower",
+        "powdery mildew wheat",
+        "rhizopus sunflower",
+        "rust sunflower",
+        "rust wheat",
+        "sclerotinia sunflower",
+        "septoria wheat",
+        "smuts wheat"
+      ],
+      "class_map": {
+        "alternaria sunflower": "Alternaria Leaf Spot",
+        "downy mildew sunflower": "Downy Mildew",
+        "healthy sunflower": "Healthy",
+        "powdery mildew sunflower": "Powdery Mildew",
+        "rhizopus sunflower": "Rhizopus Head Rot",
+        "rust sunflower": "Rust",
+        "sclerotinia sunflower": "Sclerotinia",
+        "healthy wheat": "__WHEAT_CLASS__",
+        "mosaic wheat": "__WHEAT_CLASS__",
+        "powdery mildew wheat": "__WHEAT_CLASS__",
+        "rust wheat": "__WHEAT_CLASS__",
+        "septoria wheat": "__WHEAT_CLASS__",
+        "smuts wheat": "__WHEAT_CLASS__"
+      }
+    },
+    "Tomato": {
+      "file": "tomato.keras",
+      "tflite_file": "tomato.tflite",
+      "size": 150,
+      "norm": "0_1",
+      "classes": [
+        "Bacterial Spot",
+        "Early Blight",
+        "Late Blight",
+        "Leaf Mold",
+        "Septoria Leaf Spot",
+        "Spider Mites",
+        "Target Spot",
+        "Yellow Leaf Curl Virus",
+        "Mosaic Virus",
+        "Healthy"
+      ]
+    },
+    "Turmeric": {
+      "file": "turmeric.keras",
+      "tflite_file": "turmeric.tflite",
+      "size": 224,
+      "norm": "0_255",
+      "classes": [
+        "Dry Leaf",
+        "Healthy",
+        "Leaf Blotch",
+        "Rhizome Disease"
+      ]
+    },
+    "Wheat": {
+      "file": "wheat.keras",
+      "tflite_file": "wheat.tflite",
+      "size": 224,
+      "norm": "0_1",
+      "classes": [
+        "Leaf Rust",
+        "Loose Smut",
+        "Crown Root Rot",
+        "Healthy"
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "crops": [
+    "Blackgram",
+    "Cotton",
+    "Eggplant",
+    "Groundnut",
+    "Paddy",
+    "Sugarcane",
+    "Sunflower",
+    "Tomato",
+    "Turmeric",
+    "Wheat"
+  ],
+  "threshold": 65.0,
+  "image_size": 224,
+  "norm": "mobilenet_v2"
+}

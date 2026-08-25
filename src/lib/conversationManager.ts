@@ -10,25 +10,49 @@ export type ConversationState =
   | 'collecting_phosphorous'
   | 'collecting_potassium'
   | 'generating_recommendations'
-  | 'awaiting_acreage'
   | 'presenting_fertilizers'
   | 'awaiting_rating'
   | 'completed';
 
-const SUPPORTED_CROPS = [
+export const SUPPORTED_CROPS = [
   'Sugarcane',
   'Turmeric',
   'Groundnut',
   'Blackgram',
   'Sunflower',
   'Wheat',
-  'Paddy',
-  'Rice',
-  'Eggplant',
-  'Brinjal',
+  'Paddy (Rice)',
+  'Eggplant (Brinjal)',
   'Cotton',
   'Tomato',
 ];
+
+const UNSUPPORTED_CROP_RESPONSE =
+  'This is an unsupported crop. Please upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, or Tomato.';
+
+export function normalizeCropName(cropName?: string): string | null {
+  const normalized = (cropName || '').trim().toLowerCase();
+  if (!normalized) return 'Sugarcane';
+
+  const aliasMap: Record<string, string> = {
+    sugarcane: 'Sugarcane',
+    turmeric: 'Turmeric',
+    groundnut: 'Groundnut',
+    blackgram: 'Blackgram',
+    sunflower: 'Sunflower',
+    wheat: 'Wheat',
+    paddy: 'Paddy (Rice)',
+    rice: 'Paddy (Rice)',
+    'paddy (rice)': 'Paddy (Rice)',
+    eggplant: 'Eggplant (Brinjal)',
+    brinjal: 'Eggplant (Brinjal)',
+    'eggplant (brinjal)': 'Eggplant (Brinjal)',
+    cotton: 'Cotton',
+    tomato: 'Tomato',
+  };
+
+  return aliasMap[normalized] || null;
+}
 
 const SOIL_TYPE_OPTIONS = [
   'Clay',
@@ -118,7 +142,28 @@ export class ConversationManager {
     return 'auto_detected';
   }
 
-  async initialize(): Promise<void> {
+  private createEmptyConversation(): Conversation {
+    return {
+      id: `local-${Date.now()}`,
+      session_id: this.sessionId,
+      messages: [],
+      current_state: 'awaiting_image',
+      crop_data: {},
+      soil_data: {},
+      acreage: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as Conversation;
+  }
+
+  async initialize(forceFresh = false): Promise<void> {
+    if (forceFresh) {
+      this.conversation = this.createEmptyConversation();
+      this.useLocalFallback = true;
+      this.saveLocalConversation();
+      return;
+    }
+
     // Try fetching from Supabase; if network fails, fall back to localStorage
     try {
       const { data, error } = await supabase
@@ -156,17 +201,7 @@ export class ConversationManager {
       }
 
       // create local conversation
-      this.conversation = {
-        id: `local-${Date.now()}`,
-        session_id: this.sessionId,
-        messages: [],
-        current_state: 'awaiting_image',
-        crop_data: {},
-        soil_data: {},
-        acreage: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as Conversation;
+      this.conversation = this.createEmptyConversation();
 
       this.saveLocalConversation();
       return;
@@ -197,17 +232,7 @@ export class ConversationManager {
       console.error('Network error creating conversation in Supabase:', err);
       // if creation fails, enable local fallback and create locally
       this.useLocalFallback = true;
-      this.conversation = {
-        id: `local-${Date.now()}`,
-        session_id: this.sessionId,
-        messages: [],
-        current_state: 'awaiting_image',
-        crop_data: {},
-        soil_data: {},
-        acreage: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as Conversation;
+      this.conversation = this.createEmptyConversation();
       this.saveLocalConversation();
     }
   }
@@ -215,7 +240,14 @@ export class ConversationManager {
   private saveLocalConversation() {
     try {
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(this.localKey, JSON.stringify(this.conversation));
+        const safeConversation = {
+          ...this.conversation,
+          messages: (this.conversation?.messages || []).map((message) => ({
+            ...message,
+            imageUrl: message.imageUrl ? '[image]' : undefined,
+          })),
+        };
+        window.localStorage.setItem(this.localKey, JSON.stringify(safeConversation));
       }
     } catch (e) {
       console.warn('Failed to save local conversation:', e);
@@ -274,8 +306,15 @@ export class ConversationManager {
     }
   }
 
-  async processImageUpload(imageDataUrl: string): Promise<string> {
+  async processImageUpload(imageDataUrl: string, cropHint?: string): Promise<string> {
     if (!this.conversation) await this.initialize();
+
+    const normalizedCropName = normalizeCropName(cropHint);
+    if (!normalizedCropName) {
+      await this.updateState('awaiting_image');
+      await this.addMessage('assistant', UNSUPPORTED_CROP_RESPONSE);
+      return UNSUPPORTED_CROP_RESPONSE;
+    }
 
     await this.addMessage('user', 'Uploaded crop image', imageDataUrl);
     await this.updateState('processing_image');
@@ -286,39 +325,60 @@ export class ConversationManager {
         content: msg.content,
       }));
 
-      const analysisResult = await analyzeImageForCropDisease(imageDataUrl, conversationHistory);
+      const analysisResult = await analyzeImageForCropDisease(imageDataUrl, conversationHistory, normalizedCropName);
 
       const detectedCrop = this.extractCropName(analysisResult);
       const detectedDisease = this.extractDiseaseName(analysisResult);
+      const normalizedAnalysis = analysisResult.toLowerCase();
 
-      // Check if the response indicates an unsupported crop
-      if (analysisResult.toLowerCase().includes('unsupported crop') || 
-          analysisResult.toLowerCase().includes('not supported') ||
-          analysisResult.toLowerCase().includes('not in the supported')) {
+      if (
+        normalizedAnalysis.includes('busy') ||
+        normalizedAnalysis.includes('temporarily unavailable') ||
+        normalizedAnalysis.includes('rate limit') ||
+        normalizedAnalysis.includes('quota') ||
+        normalizedAnalysis.includes('rejected the request') ||
+        normalizedAnalysis.includes('api key') ||
+        normalizedAnalysis.includes('no response from ai') ||
+        normalizedAnalysis.includes('exhausted') ||
+        normalizedAnalysis.includes('could not confidently identify')
+      ) {
         await this.updateState('awaiting_image');
-        const response = 'This is an unsupported crop. Please upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, or Tomato.';
+        const response = 'I could not confidently identify the crop or disease from this image. Please upload a clear image of one of the supported crops or try again.';
         await this.addMessage('assistant', response);
         return response;
-      } else if (detectedCrop && this.isSupportedCrop(detectedCrop)) {
-        await this.updateCropData(detectedCrop, detectedDisease || 'Unknown');
+      }
+
+      const looksLikeSupportedCrop = detectedCrop && this.isSupportedCrop(detectedCrop);
+      const looksLikeDetection = normalizedAnalysis.includes('i detected') || normalizedAnalysis.includes('detected') || normalizedAnalysis.includes('healthy');
+
+      if (normalizedAnalysis.includes('unsupported crop') || 
+          normalizedAnalysis.includes('not supported') ||
+          normalizedAnalysis.includes('not in the supported') ||
+          normalizedAnalysis.includes('unsupported image')) {
+        await this.updateState('awaiting_image');
+        await this.addMessage('assistant', UNSUPPORTED_CROP_RESPONSE);
+        return UNSUPPORTED_CROP_RESPONSE;
+      } else if (looksLikeSupportedCrop && looksLikeDetection) {
+        const diseaseName = detectedDisease || 'Unknown disease';
+        await this.updateCropData(detectedCrop, diseaseName);
         await this.updateState('collecting_soil_type');
 
-        const response = `${analysisResult}\n\nGreat! Now, please tell me about your soil and climate conditions so I can recommend the best fertilizers.\n\nFirst, what is your Soil Type?`;
+        const response = `${analysisResult}\n\nDetected disease: ${diseaseName}.\n\nGreat! Now, please tell me about your soil and climate conditions so I can recommend the best fertilizers.\n\nFirst, what is your Soil Type?`;
 
         await this.addMessage('assistant', response, undefined, {
           type: 'soil_type',
           options: SOIL_TYPE_OPTIONS,
         });
         return response;
-      } else if (analysisResult.toLowerCase().includes('please upload') ||
-                 analysisResult.toLowerCase().includes('unclear') ||
-                 analysisResult.toLowerCase().includes('better image')) {
+      } else if (normalizedAnalysis.includes('please upload') ||
+                 normalizedAnalysis.includes('unclear') ||
+                 normalizedAnalysis.includes('better image')) {
         await this.updateState('awaiting_image');
         await this.addMessage('assistant', analysisResult);
         return analysisResult;
       } else {
         await this.updateState('awaiting_image');
-        const response = `${analysisResult}\n\nPlease upload an image of one of these supported crops: Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, or Tomato.`;
+        const response = 'I could not confidently identify the crop or disease from this image. Please upload a clear image of one of the supported crops or try again.';
         await this.addMessage('assistant', response);
         return response;
       }
@@ -350,8 +410,6 @@ export class ConversationManager {
         return await this.handlePhosphorous(userInput);
       case 'collecting_potassium':
         return await this.handlePotassium(userInput);
-      case 'awaiting_acreage':
-        return await this.handleAcreage(userInput);
       case 'awaiting_rating':
         return await this.handleRating(userInput);
       case 'awaiting_image':
@@ -416,41 +474,16 @@ export class ConversationManager {
     await this.updateSoilData({ potassium: input });
     await this.updateState('generating_recommendations');
 
-    const response = 'Thank you for providing all the information! Let me generate personalized fertilizer recommendations for your crop...';
-    await this.addMessage('assistant', response);
+    const loadingResponse = 'Thank you for providing all the information! Let me generate personalized fertilizer recommendations for your crop...';
+    await this.addMessage('assistant', loadingResponse);
 
     const recommendations = await this.generateFertilizerRecommendations();
-    await this.updateState('awaiting_acreage');
-
-    await this.addMessage('assistant', recommendations);
-    return recommendations;
-  }
-
-  private async handleAcreage(input: string): Promise<string> {
-    const acreage = parseFloat(input);
-
-    if (isNaN(acreage) || acreage <= 0) {
-      const response = 'Please provide a valid number of acres (for example: 2.5 or 5).';
-      await this.addMessage('assistant', response);
-      return response;
-    }
-
-    await this.updateAcreage(acreage);
-
-    const calculations = this.calculateQuantities(acreage);
     await this.updateState('awaiting_rating');
 
-    const response = `${calculations}\n\nHow would you rate this fertilizer recommendation? Please rate from 1 to 5 stars (1 = Poor, 5 = Excellent).`;
-    await this.addMessage('assistant', response);
-
-    // Send thank you message with animation and icon after calculations
-    const thankYouMessage = `Thank You! 🙏`;
-    const iconUrl = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQFjJlAkaIpnXBm80ou4P_niKFxmqglq2fCRA&s';
-    await this.addMessage('assistant', `<span style="display: inline-block; animation: slideInLeftToRight 1s ease-in-out; text-align: center; width: 100%;">
-<img src="${iconUrl}" alt="Thank You" style="width: 60px; height: 60px; margin: 10px auto; display: block; border-radius: 50%; object-fit: cover;" />
-<strong>${thankYouMessage}</strong>
-</span>`);
-    return response;
+    await this.addMessage('assistant', recommendations);
+    const thankYouResponse = 'Thank You! 🙏';
+    await this.addMessage('assistant', thankYouResponse);
+    return thankYouResponse;
   }
 
   private async handleRating(input: string): Promise<string> {
@@ -473,47 +506,95 @@ export class ConversationManager {
     return response;
   }
 
-  private async generateFertilizerRecommendations(): Promise<string> {
+  private parseNutrientValue(value?: string): number | null {
+    if (!value) return null;
+    const cleaned = `${value}`.replace(/[^0-9.\-]/g, '');
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private buildBioFertilizerRecommendations(): string {
     const cropData = this.conversation!.crop_data;
     const soilData = this.conversation!.soil_data;
 
-    const systemPrompt = `You are an expert agricultural advisor. Generate detailed fertilizer recommendations for the farmer.
+    const crop = cropData.crop || 'your crop';
+    const disease = cropData.disease || 'general health';
+    const soilType = soilData.soilType || 'Not provided';
+    const climate = soilData.climate || 'Not provided';
+    const waterLevel = soilData.waterLevel || 'Not provided';
+    const soilTemp = this.parseNutrientValue(soilData.soilTemp);
+    const nitrogen = this.parseNutrientValue(soilData.nitrogen);
+    const phosphorous = this.parseNutrientValue(soilData.phosphorous);
+    const potassium = this.parseNutrientValue(soilData.potassium);
 
-CROP: ${cropData.crop}
-DISEASE: ${cropData.disease}
-SOIL TYPE: ${soilData.soilType}
-CLIMATE: ${soilData.climate}
-WATER LEVEL: ${soilData.waterLevel}
-SOIL TEMPERATURE: ${soilData.soilTemp || 'Not provided'}
-NITROGEN: ${soilData.nitrogen || 'Not provided'}
-PHOSPHOROUS: ${soilData.phosphorous || 'Not provided'}
-POTASSIUM: ${soilData.potassium || 'Not provided'}
+    const temperatureLabel = soilTemp !== null ? `${soilTemp.toFixed(1)}°C` : 'Not provided';
+    const nitrogenStatus = nitrogen === null ? 'Not provided' : nitrogen < 80 ? 'Low' : nitrogen < 140 ? 'Medium' : 'High';
+    const phosphorusStatus = phosphorous === null ? 'Not provided' : phosphorous < 40 ? 'Low' : phosphorous < 80 ? 'Medium' : 'High';
+    const potassiumStatus = potassium === null ? 'Not provided' : potassium < 80 ? 'Low' : potassium < 140 ? 'Medium' : 'High';
 
-Generate fertilizer recommendations in THREE categories:
-1. Medical/Chemical Fertilizers
-2. Natural/Organic Fertilizers
-3. Bio-fertilizers
+    const bioRecommendations: string[] = [];
 
-For EACH fertilizer, provide:
-- Name
-- Composition
-- Dosage per acre
-- Application method
-- Timing
-- Precautions
-- Advantages
-- Disadvantages
-- Suitability for this disease and climate
+    if (nitrogenStatus === 'Low' || nitrogenStatus === 'Not provided') {
+      bioRecommendations.push(
+        '- Azospirillum / Azotobacter: Apply 1-2 kg per acre as seed treatment or soil application. Best for low nitrogen and warm climates. Helps improve nitrogen fixation and plant vigor.'
+      );
+    }
 
-Format your response clearly with headers and bullet points. Be specific and practical. Use simple farmer-friendly language.
+    if (phosphorusStatus === 'Low' || phosphorusStatus === 'Not provided') {
+      bioRecommendations.push(
+        '- Phosphate Solubilizing Bacteria (PSB): Apply 1-2 kg per acre mixed in compost or soil. Useful for low phosphorus and light soils. Improves phosphorus availability.'
+      );
+    }
 
-After listing all fertilizers, ask: "How many acres is your crop cultivated on?"`;
+    if (potassiumStatus === 'Low' || potassiumStatus === 'Not provided') {
+      bioRecommendations.push(
+        '- Potash Mobilizing Bacteria (KMB): Apply 1-2 kg per acre with farmyard manure. Useful when potassium is low and irrigation is regular. Improves stress tolerance.'
+      );
+    }
 
-    const conversationHistory: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-    ];
+    if (disease.toLowerCase().includes('blight') || disease.toLowerCase().includes('rot') || disease.toLowerCase().includes('mildew') || disease.toLowerCase().includes('rust') || disease.toLowerCase().includes('wilt')) {
+      bioRecommendations.push(
+        '- Trichoderma viride / Pseudomonas fluorescens: Apply 4-5 g per kg seed or 2.5 kg per acre as soil drench. Good for fungal disease pressure and humid weather.'
+      );
+    }
 
-    return await getChatResponse(conversationHistory, systemPrompt);
+    if ((soilTemp !== null && soilTemp >= 28) || climate.toLowerCase().includes('tropical') || climate.toLowerCase().includes('subtropical')) {
+      bioRecommendations.push(
+        '- Mycorrhizal biofertilizer: Apply near roots during transplanting or early growth. Useful for warm climates and drip/sprinkler irrigation. Improves water and nutrient uptake.'
+      );
+    }
+
+    if (bioRecommendations.length === 0) {
+      bioRecommendations.push(
+        '- Rhizobium / PGPR mix: Apply 1-2 kg per acre as seed or soil treatment. Good general support for healthy root development and balanced nutrient use.'
+      );
+    }
+
+    return `Based on your crop, soil, climate, and irrigation details, here are practical bio-fertilizer recommendations for ${crop}.
+
+Crop: ${crop}
+Soil type: ${soilType}
+Climate code: ${climate}
+Water / irrigation: ${waterLevel}
+Soil temperature: ${temperatureLabel}
+N status: ${nitrogenStatus}
+P status: ${phosphorusStatus}
+K status: ${potassiumStatus}
+
+Bio-fertilizers:
+${bioRecommendations.join('\n')}
+
+General guidance:
+- Apply biofertilizers in the morning or evening.
+- Mix them with compost or farmyard manure for better survival.
+- Use drip or sprinkler irrigation for better root contact.
+- Avoid applying chemical fungicides immediately after biofertilizer treatment.
+
+`;
+  }
+
+  private async generateFertilizerRecommendations(): Promise<string> {
+    return this.buildBioFertilizerRecommendations();
   }
 
   private calculateQuantities(acreage: number): string {
@@ -675,19 +756,30 @@ After listing all fertilizers, ask: "How many acres is your crop cultivated on?"
   }
 
   private extractDiseaseName(text: string): string | null {
-    const diseaseKeywords = ['blight', 'rot', 'wilt', 'rust', 'spot', 'disease', 'infection', 'fungus', 'pest', 'healthy', 'mosaic','leaf curl','yellow','virus'];
-    const lowerText = text.toLowerCase();
+    const supportedDiseases = [
+      'anthracnose', 'healthy', 'leaf crinckle', 'powdery mildew', 'yellow mosaic',
+      'aphids', 'army worm', 'bacterial blight', 'target spot',
+      'leaf spot', 'mosaic virus', 'small leaf', 'white mold', 'wilt disease',
+      'late leaf spot', 'leaf blight', 'brown spot', 'leaf blast', 'leaf scald', 'sheath blight',
+      'redrot', 'redrust',
+      'alternaria sunflower', 'downy mildew sunflower', 'rhizopus', 'sclerotinia',
+      'bacterial spot', 'early blight', 'late blight', 'leaf mold', 'septoria leaf spot', 'spider mites', 'yellow leaf curl virus',
+      'dry leaf', 'leaf blotch', 'rhizome disease root',
+      'wheat crown root rot', 'wheat healthy', 'wheat leaf rust', 'wheat loose smut'
+    ];
 
-    for (const keyword of diseaseKeywords) {
-      if (lowerText.includes(keyword)) {
-        const sentences = text.split(/[.!?]/);
-        for (const sentence of sentences) {
-          if (sentence.toLowerCase().includes(keyword)) {
-            return sentence.trim();
-          }
-        }
+    const lower = (text || '').toLowerCase();
+    for (const label of supportedDiseases) {
+      if (lower.includes(label)) {
+        // Return with original casing from the list (simple capitalization)
+        return label;
       }
     }
+
+    // Fallback: try to extract short phrase after 'with' or 'has'
+    const match = text.match(/\b(?:with|has|showing|shows)\s+([A-Za-z\s]+?)(?=[\.\!?]|$)/i);
+    if (match && match[1]) return match[1].trim();
+
     return null;
   }
 
@@ -817,6 +909,12 @@ After listing all fertilizers, ask: "How many acres is your crop cultivated on?"
       this.conversation.updated_at = new Date().toISOString();
       this.saveLocalConversation();
     }
+  }
+
+  async clearHistory(): Promise<void> {
+    this.conversation = this.createEmptyConversation();
+    this.useLocalFallback = true;
+    this.saveLocalConversation();
   }
 
   getMessages(): Message[] {

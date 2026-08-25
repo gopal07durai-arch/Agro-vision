@@ -21,3 +21,32 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.coverage
+.venv/
+env/
+venv/
+
+# Large Keras training files (production uses optimized .tflite models)
+*.keras
+
+# Flutter & Android build artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+*.apk
+*.aab
+/agrovision_app/build/
+/agrovision_app/.dart_tool/
+/agrovision_app/android/.gradle/
+

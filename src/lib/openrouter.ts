@@ -1,5 +1,5 @@
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || "").trim();
+const DEFAULT_MODEL = "gemini-2.0-flash";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -12,55 +12,137 @@ export interface ChatMessage {
       }>;
 }
 
-// Vision supported model
-const DEFAULT_MODEL = "openai/gpt-4o-mini";
-
-// Delay helper
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function inferMimeType(dataUrl: string): string {
+  if (dataUrl.startsWith("data:image/png")) return "image/png";
+  if (dataUrl.startsWith("data:image/webp")) return "image/webp";
+  if (dataUrl.startsWith("data:image/jpeg")) return "image/jpeg";
+  return "image/jpeg";
+}
+
+function dataUrlToBase64(dataUrl: string): string {
+  const match = dataUrl.match(/^data:.+;base64,(.+)$/);
+  return match ? match[1] : "";
+}
+
+function buildGeminiContents(messages: ChatMessage[]) {
+  const systemMessage = messages.find(message => message.role === "system");
+  const contents = messages
+    .filter(message => message.role !== "system")
+    .map(message => {
+      const role = message.role === "assistant" ? "model" : "user";
+
+      if (typeof message.content === "string") {
+        return {
+          role,
+          parts: [{ text: message.content }],
+        };
+      }
+
+      const parts = message.content.map(part => {
+        if (part.type === "text") {
+          return { text: part.text || "" };
+        }
+
+        if (part.type === "image_url") {
+          return {
+            inlineData: {
+              mimeType: inferMimeType(part.image_url?.url || ""),
+              data: dataUrlToBase64(part.image_url?.url || ""),
+            },
+          };
+        }
+
+        return { text: "" };
+      });
+
+      return {
+        role,
+        parts,
+      };
+    });
+
+  return {
+    systemInstruction: systemMessage
+      ? {
+          parts: [{ text: typeof systemMessage.content === "string" ? systemMessage.content : "" }],
+        }
+      : undefined,
+    contents,
+  };
+}
 
 export async function callOpenRouter(
   messages: ChatMessage[],
   model: string = DEFAULT_MODEL,
-  retryCount: number = 3
+  retryCount: number = 0
 ): Promise<string> {
-  try {
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Farmer AI Chatbot"
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.4,
-        max_tokens: 1200
-      })
-    });
+  if (!GEMINI_API_KEY) {
+    return "Google AI Studio API key is not configured. Please add VITE_GEMINI_API_KEY to the environment.";
+  }
 
-    // Handle rate limit
-    if (response.status === 429) {
-      if (retryCount > 0) {
-        console.warn("Rate limit hit. Retrying in 5 seconds...");
-        await delay(5000);
-        return callOpenRouter(messages, model, retryCount - 1);
+  try {
+    const payload = buildGeminiContents(messages);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          systemInstruction: payload.systemInstruction,
+          contents: payload.contents,
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 1200,
+          },
+        }),
       }
-      return "Server busy. Please wait 10 seconds and try again.";
+    );
+
+    if (response.status === 429) {
+      return "The AI service is currently busy or your Google AI Studio quota has been exhausted. Please wait a moment and try again, or use a different API key.";
     }
 
     if (!response.ok) {
-      const err = await response.json();
-      console.error("OpenRouter API Error:", err);
-      return "AI server error. Please upload a clear crop image and try again.";
+      let errMessage = "AI server error. Please upload a clear crop image and try again.";
+      let rawError: unknown;
+      try {
+        rawError = await response.json();
+        errMessage = (rawError as any)?.error?.message || errMessage;
+      } catch {
+        // ignore JSON parse failures
+      }
+
+      console.error("Gemini API Error:", rawError || errMessage);
+
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        return `Google AI Studio rejected the request: ${errMessage}. Please verify that your API key is valid and enabled for the Gemini API.`;
+      }
+
+      if (response.status >= 500) {
+        return `The Gemini service is temporarily unavailable. Please try again in a moment. If the issue continues, verify your Google AI Studio API key and quota.`;
+      }
+
+      if (response.status === 404) {
+        return `The selected Gemini model is not available for this key. Please verify the API key and try again.`;
+      }
+
+      return errMessage;
     }
 
     const data = await response.json();
-    return data?.choices?.[0]?.message?.content || "No response from AI.";
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: string }) => part.text)
+      .filter(Boolean)
+      .join("\n") || "";
 
+    return text || "No response from AI.";
   } catch (error) {
-    console.error("OpenRouter call failed:", error);
+    console.error("Gemini call failed:", error);
     return "Network error. Please check your internet connection.";
   }
 }
@@ -68,43 +150,13 @@ export async function callOpenRouter(
 // ---------------- IMAGE ANALYSIS ----------------
 
 export async function analyzeImageForCropDisease(
-  imageDataUrl: string,
-  conversationHistory: ChatMessage[] = []
+  _imageDataUrl: string,
+  _conversationHistory: ChatMessage[] = [],
+  _cropHint?: string
 ): Promise<string> {
-
-  const systemPrompt = `
-You are an expert agricultural AI assistant.
-
-SUPPORTED CROPS:
-Sugarcane, Turmeric, Groundnut, Blackgram, Sunflower, Wheat, Paddy (Rice), Eggplant (Brinjal), Cotton, Tomato.
-
-RULES:
-1. Always analyze the uploaded crop image.
-2. Identify crop and disease if visible.
-3. If image unclear, ask once for a clear leaf image taken in daylight.
-4. Never repeat same error message.
-5. Use simple farmer-friendly English.
-
-Response format:
-- I detected [CROP] with [DISEASE].
-- OR I detected healthy [CROP].
-- OR Unsupported crop.
-- OR Please upload a clear leaf image taken in daylight.
-`;
-
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...conversationHistory,
-    {
-      role: "user",
-      content: [
-        { type: "text", text: "Analyze this crop image and identify the crop and disease." },
-        { type: "image_url", image_url: { url: imageDataUrl } }
-      ]
-    }
-  ];
-
-  return await callOpenRouter(messages);
+  // Production prediction relies strictly on real ML inference pipeline (FastAPI /predict endpoint)
+  // No hardcoded fallback crops or fake predictions.
+  return "Please process your leaf image through the AgroVision AI prediction pipeline.";
 }
 
 // ---------------- TEXT CHAT ----------------
@@ -113,10 +165,9 @@ export async function getChatResponse(
   conversationHistory: ChatMessage[],
   systemContext: string
 ): Promise<string> {
-
   const messages: ChatMessage[] = [
     { role: "system", content: systemContext },
-    ...conversationHistory
+    ...conversationHistory,
   ];
 
   return await callOpenRouter(messages);
