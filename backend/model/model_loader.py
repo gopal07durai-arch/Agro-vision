@@ -43,7 +43,7 @@ from model.crop_config import MODEL_SETTINGS
 logger = logging.getLogger(__name__)
 
 # Model Version
-MODEL_VERSION = "v3.0 (Two-Stage ML Pipeline — Real Image Inference with Calibrated Scaling)"
+MODEL_VERSION = "v3.1 (Two-Stage ML Pipeline — Entropy-Guarded Inference)"
 
 # Paths
 _BACKEND_DIR  = Path(__file__).parent.parent          # backend/
@@ -456,6 +456,19 @@ def predict(image: Image.Image) -> dict | None:
         for i, (c_name, c_prob) in enumerate(crop_probs_sorted[:5]):
             logger.info(f"  {i+1}. {c_name}: {c_prob * 100:.2f}%")
 
+        # Compute softmax entropy of crop output for OOD analysis
+        # NOTE: Genuine crop leaf photos tend to be highly peaked (one dominant class).
+        # Posters/non-plant images also produce peaked outputs (the model always picks something).
+        # We use the top-2 margin as an additional signal logged for debugging.
+        sorted_probs = np.sort(crop_preds)[::-1]
+        top1_prob = float(sorted_probs[0])
+        top2_prob = float(sorted_probs[1]) if len(sorted_probs) > 1 else 0.0
+        crop_margin = round((top1_prob - top2_prob) * 100.0, 2)  # margin in percentage points
+
+        # Softmax entropy (bits) — low entropy = model is very sure
+        crop_entropy_bits = float(-np.sum(crop_preds[crop_preds > 0] * np.log2(crop_preds[crop_preds > 0] + 1e-12)))
+        logger.info(f"[OOD] Crop softmax entropy={crop_entropy_bits:.3f} bits | top1-top2 margin={crop_margin:.1f}%")
+
         # ─────────────────────────────────────────────────────────────────────
         # Stage 2: Disease Classification for Detected Crop
         # ─────────────────────────────────────────────────────────────────────
@@ -507,6 +520,8 @@ def predict(image: Image.Image) -> dict | None:
         result = {
             "crop":               detected_crop,
             "crop_confidence":    crop_confidence,
+            "crop_margin":        crop_margin,        # top1 - top2 margin in %
+            "crop_entropy_bits": crop_entropy_bits,  # softmax entropy for OOD logging
             "disease":            disease_name,
             "disease_confidence": disease_confidence,
             "severity":           severity,

@@ -10,10 +10,13 @@ Multi-Stage Validation Pipeline:
            (Detects vehicles, buildings, technology, animals, furniture, human apparel, etc.)
   Stage 4: Chlorophyll & Plant Tissue vs Human Skin / Grey-Surface Color Space Analysis
            (Evaluates green foliage dominance, diseased yellow/brown tissue, YCbCr human skin, low-saturation asphalt/metal)
+  Stage 5: Color Diversity / Shannon Entropy Guard
+           (Posters and documents have highly diverse color histograms; crop leaves have concentrated hue ranges)
 
 Error Types:
   - LOW_IMAGE_QUALITY: resolution < 60x60, pitch dark, overexposed, blurry
-  - NOT_LEAF: human, face, hand, vehicle, road, building, animal, laptop, furniture, random object, non-leaf image
+  - NOT_LEAF: human, face, hand, vehicle, road, building, animal, laptop, furniture,
+              poster, document, screenshot, random object, non-leaf image
 """
 
 import logging
@@ -107,8 +110,9 @@ def _check_plant_tissue_metrics(img_bgr: np.ndarray) -> dict:
       - green_ratio: Strictly green-dominant plant foliage pixels (G > R and G > B)
       - diseased_ratio: Yellow/brown diseased plant tissue (excluding human skin)
       - skin_ratio: Human skin tone pixels (YCbCr color space)
-      - low_sat_ratio: Neutral grey / asphalt / road / concrete / metal pixels
-      - total_plant_ratio: Total valid plant tissue area
+      - low_sat_ratio: Neutral grey / asphalt / road / concrete / metal / paper pixels
+      - non_plant_color_ratio: Artificial non-botanical colors (Blue, Cyan, Magenta, Purple)
+      - total_plant_ratio: Total valid plant tissue area (green + coupled diseased tissue)
     """
     total_pixels = float(img_bgr.shape[0] * img_bgr.shape[1])
     b, g, r = cv2.split(img_bgr.astype(np.float32))
@@ -137,19 +141,32 @@ def _check_plant_tissue_metrics(img_bgr: np.ndarray) -> dict:
     diseased_mask = cv2.bitwise_and(diseased_raw, cv2.bitwise_not(skin_mask))
     diseased_ratio = float(np.sum(diseased_mask > 0)) / total_pixels
 
-    # 4. Low-Saturation Grey / Asphalt / Road / Metal pixels (Saturation < 22)
+    # 4. Low-Saturation Grey / Asphalt / Road / Metal / Paper pixels (Saturation < 22)
     low_sat_mask = (hsv[:, :, 1] < 22).astype(np.uint8) * 255
     low_sat_ratio = float(np.sum(low_sat_mask > 0)) / total_pixels
 
-    # Total combined plant tissue
-    plant_mask = green_dominant | (diseased_mask > 0)
-    total_plant_ratio = float(np.sum(plant_mask)) / total_pixels
+    # 5. Non-Botanical Colors (Blue, Cyan, Magenta, Purple: Hue 80-170 with Sat > 40 and Val > 30)
+    non_plant_colors_mask = (
+        (hsv[:, :, 0] >= 80) & (hsv[:, :, 0] <= 170) &
+        (hsv[:, :, 1] > 40) & (hsv[:, :, 2] > 30)
+    ).astype(np.uint8) * 255
+    non_plant_color_ratio = float(np.sum(non_plant_colors_mask > 0)) / total_pixels
+
+    # 6. Total combined plant tissue
+    # Note: Diseased yellow/brown is ONLY credited toward plant tissue if some green leaf foliage is present (>= 4%)
+    if green_ratio >= 0.04:
+        plant_mask = green_dominant | (diseased_mask > 0)
+        total_plant_ratio = float(np.sum(plant_mask)) / total_pixels
+    else:
+        # Without green foliage, isolated yellow/orange regions are synthetic/cardboard/posters
+        total_plant_ratio = green_ratio
 
     return {
         "green_ratio": green_ratio,
         "diseased_ratio": diseased_ratio,
         "skin_ratio": skin_ratio,
         "low_sat_ratio": low_sat_ratio,
+        "non_plant_color_ratio": non_plant_color_ratio,
         "total_plant_ratio": total_plant_ratio,
     }
 
@@ -194,7 +211,7 @@ def validate_image_for_prediction(pil_image: Image.Image) -> Tuple[bool, Optiona
 
     Error Types:
         - LOW_IMAGE_QUALITY: resolution < 60x60, pitch dark, overexposed, blurry
-        - NOT_LEAF: human, face, hand, vehicle, road, building, animal, laptop, furniture, random object
+        - NOT_LEAF: human, face, hand, vehicle, road, building, animal, laptop, furniture, poster, document, screenshot
     """
     # ── Stage 1: Resolution & Dimensions ──────────────────────────────────────
     w, h = pil_image.size
@@ -224,29 +241,94 @@ def validate_image_for_prediction(pil_image: Image.Image) -> Tuple[bool, Optiona
     green_r = metrics["green_ratio"]
     skin_r  = metrics["skin_ratio"]
     lowsat_r = metrics["low_sat_ratio"]
+    non_plant_r = metrics["non_plant_color_ratio"]
     plant_r = metrics["total_plant_ratio"]
 
-    # Rule 3a: Human skin / hand / person dominance
+    # Rule 3a: Non-botanical artificial colors (Blue, Cyan, Magenta, Purple posters/vehicles/screens)
+    if non_plant_r > 0.05 and green_r < 0.35:
+        logger.info(f"[Validation Filter] Rejected as artificial/poster/vehicle: non_plant_color_ratio={non_plant_r:.3f}, green_ratio={green_r:.3f}")
+        return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf, not a poster, vehicle, or artificial object."
+
+    # Rule 3b: Human skin / hand / person dominance
     if skin_r > 0.10 and green_r < 0.15:
         logger.info(f"[Validation Filter] Rejected as human skin/person: skin_ratio={skin_r:.2f}, green_ratio={green_r:.2f}")
         return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf, not a person or object."
 
-    # Rule 3b: Asphalt / Road / Concrete / Neutral Grey Object dominance
-    if lowsat_r > 0.60 and green_r < 0.10:
-        logger.info(f"[Validation Filter] Rejected as neutral/road/grey object: low_sat_ratio={lowsat_r:.2f}, green_ratio={green_r:.2f}")
+    # Rule 3c: Asphalt / Road / Concrete / Neutral Grey / Paper Document dominance
+    if lowsat_r > 0.55 and green_r < 0.10:
+        logger.info(f"[Validation Filter] Rejected as neutral/road/grey/document: low_sat_ratio={lowsat_r:.2f}, green_ratio={green_r:.2f}")
+        return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf, not a road, wall, or document."
+
+    # Rule 3d: Minimum green plant tissue requirement
+    if green_r < 0.04:
+        logger.info(f"[Validation Filter] Rejected: Insufficient green plant tissue = {green_r:.3f} < 0.04")
         return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf."
 
-    # Rule 3c: Minimum total plant tissue area requirement (at least 12% plant coverage)
+    # Rule 3e: Minimum total plant tissue area requirement (at least 12% total plant coverage)
     if plant_r < 0.12:
-        logger.info(f"[Validation Filter] Rejected: Plant tissue ratio = {plant_r:.3f} < 0.12")
+        logger.info(f"[Validation Filter] Rejected: Total plant tissue ratio = {plant_r:.3f} < 0.12")
         return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf."
 
-    # ── Stage 4: MobileNetV2 ImageNet Classifier Check ────────────────────────
-    # Only run OOD classifier if plant dominance is moderate (< 50%) to catch green non-plant items
-    if green_r < 0.50:
+    # ── Stage 4: Color Diversity / Shannon Entropy Guard ─────────────────────
+    entropy, hue_peak_ratio = _compute_hue_entropy(img_bgr)
+    if entropy > 2.8 and green_r < 0.25:
+        logger.info(
+            f"[Entropy Filter] Rejected: hue_entropy={entropy:.2f}, green_ratio={green_r:.3f} — likely poster/document/screenshot."
+        )
+        return False, "NOT_LEAF", "Please upload a clear image of a supported crop leaf, not a poster, document, or screenshot."
+
+    # ── Stage 5: MobileNetV2 ImageNet Classifier Check ───────────────────────
+    # Only run OOD classifier if plant dominance is moderate (< 55%) to catch green non-plant items
+    if green_r < 0.55:
         is_non_plant, detected_class = _check_imagenet_ood(pil_image)
         if is_non_plant:
             return False, "NOT_LEAF", f"Please upload a clear image of a supported crop leaf, not a {detected_class.lower()}."
 
     # All validation stages successfully passed!
     return True, None, None
+
+
+def _compute_hue_entropy(img_bgr: np.ndarray) -> tuple[float, float]:
+    """
+    Compute Shannon entropy of the hue histogram and the ratio of peak-hue pixels.
+    Crop leaves are dominated by green/yellow-brown hues → low entropy.
+    Posters, documents, screenshots have many diverse hues → high entropy.
+
+    Returns:
+        (entropy_bits: float, hue_peak_ratio: float)
+    """
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    hue_channel = hsv[:, :, 0]          # 0–179 in OpenCV
+    sat_channel = hsv[:, :, 1]          # 0–255
+
+    # Only analyse pixels with meaningful saturation (not near-grey / background)
+    mask = sat_channel > 25
+    hue_values = hue_channel[mask]
+
+    if hue_values.size < 500:           # Too few coloured pixels → probably grey/dark image
+        return 0.0, 1.0
+
+    # Compute histogram with 36 bins (each bin = 5° of hue)
+    hist, _ = np.histogram(hue_values, bins=36, range=(0, 180))
+    hist = hist.astype(np.float64)
+    hist /= hist.sum() + 1e-8
+
+    # Shannon entropy
+    nonzero = hist[hist > 0]
+    entropy = float(-np.sum(nonzero * np.log2(nonzero)))
+
+    # Peak-hue dominance: fraction of coloured pixels in the largest bin
+    hue_peak_ratio = float(hist.max())
+
+    return entropy, hue_peak_ratio
+
+
+def compute_image_color_entropy(pil_image: Image.Image) -> float:
+    """
+    Public wrapper — returns hue Shannon entropy (bits) for use by the predict pipeline.
+    Higher entropy = more diverse colours = more likely a poster/document/non-leaf.
+    """
+    img_rgb = np.array(pil_image.convert('RGB'))
+    img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+    entropy, _ = _compute_hue_entropy(img_bgr)
+    return entropy

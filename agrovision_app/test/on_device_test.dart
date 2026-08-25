@@ -38,6 +38,43 @@ void main() {
       expect(res.errorType, LeafValidationError.notLeaf);
     });
 
+    test('Rejects multi-color poster or banner (non-leaf)', () {
+      final poster = img.Image(width: 224, height: 224);
+      // Red top, blue mid, yellow bottom, purple base
+      for (int y = 0; y < 56; y++) {
+        for (int x = 0; x < 224; x++) {
+          poster.setPixel(x, y, img.ColorRgb8(220, 40, 40));
+        }
+      }
+      for (int y = 56; y < 112; y++) {
+        for (int x = 0; x < 224; x++) {
+          poster.setPixel(x, y, img.ColorRgb8(40, 120, 220));
+        }
+      }
+      for (int y = 112; y < 168; y++) {
+        for (int x = 0; x < 224; x++) {
+          poster.setPixel(x, y, img.ColorRgb8(230, 200, 40));
+        }
+      }
+      for (int y = 168; y < 224; y++) {
+        for (int x = 0; x < 224; x++) {
+          poster.setPixel(x, y, img.ColorRgb8(180, 50, 180));
+        }
+      }
+      final res = LeafValidatorService.validateImage(poster);
+      expect(res.isValid, false);
+      expect(res.errorType, LeafValidationError.notLeaf);
+    });
+
+    test('Rejects artificial blue/purple object or vehicle (non-leaf)', () {
+      final vehicle = img.Image(width: 224, height: 224);
+      // Bright blue: R=20, G=80, B=230
+      img.fill(vehicle, color: img.ColorRgb8(20, 80, 230));
+      final res = LeafValidatorService.validateImage(vehicle);
+      expect(res.isValid, false);
+      expect(res.errorType, LeafValidationError.notLeaf);
+    });
+
     test('Accepts green plant foliage', () {
       final leaf = img.Image(width: 224, height: 224);
       // Green foliage: R=50, G=160, B=40
