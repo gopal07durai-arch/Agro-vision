@@ -78,6 +78,14 @@ class AppProvider extends ChangeNotifier {
     return 'session-$ts-$rand';
   }
 
+  int _historyVersion = 0;
+  int get historyVersion => _historyVersion;
+
+  void notifyHistoryChanged() {
+    _historyVersion++;
+    notifyListeners();
+  }
+
   static const List<Map<String, String>> supportedLanguages = [
     {'code': 'en', 'name': 'English', 'native': 'English'},
     {'code': 'ta', 'name': 'Tamil', 'native': 'தமிழ்'},
@@ -85,3 +93,4 @@ class AppProvider extends ChangeNotifier {
     {'code': 'ml', 'name': 'Malayalam', 'native': 'മലയാളം'},
   ];
 }
+

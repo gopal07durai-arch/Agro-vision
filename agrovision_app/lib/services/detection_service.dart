@@ -89,20 +89,19 @@ class DetectionService extends ChangeNotifier {
         }
       }
 
-      // ── Step 3: Save to Supabase (background, non-blocking, safe offline) ────
+      // ── Step 3: Save to Supabase + Local Cache ──────────────────────────────
       _update(DetectionStep.complete, 0.95, 'Finalizing recommendation...');
       _lastResult = result;
 
-      _supabase
-          .savePrediction(
-            sessionId: sessionId,
-            prediction: result,
-          )
-          .then((id) {
+      try {
+        final id = await _supabase.savePrediction(
+          sessionId: sessionId,
+          prediction: result,
+        );
         _savedPredictionId = id;
-      }).catchError((e) {
-        debugPrint('[DetectionService] Supabase sync skipped (offline): $e');
-      });
+      } catch (e) {
+        debugPrint('[DetectionService] Save history skipped: $e');
+      }
 
       _update(DetectionStep.complete, 1.0, 'Analysis complete!');
       return result;

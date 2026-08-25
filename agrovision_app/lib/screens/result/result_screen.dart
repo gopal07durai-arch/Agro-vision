@@ -18,12 +18,12 @@ import '../../core/l10n/app_localizations.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class ResultScreen extends StatefulWidget {
   final PredictionResult result;
-  final File imageFile;
+  final File? imageFile;
 
   const ResultScreen({
     super.key,
     required this.result,
-    required this.imageFile,
+    this.imageFile,
   });
 
   @override

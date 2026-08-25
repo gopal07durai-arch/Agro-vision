@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:agrovision_app/core/l10n/agricultural_localizations.dart';
+import 'package:agrovision_app/models/history_entry.dart';
 import 'package:agrovision_app/services/leaf_validator_service.dart';
 
 void main() {
@@ -149,4 +150,60 @@ void main() {
       }
     });
   });
+
+  group('History System & Persistence Tests', () {
+    test('HistoryEntry serializes to JSON and deserializes correctly', () {
+      final now = DateTime.now();
+      final entry = HistoryEntry(
+        id: 'test-123',
+        sessionId: 'session-xyz',
+        cropName: 'Tomato',
+        diseaseName: 'Early Blight',
+        cropConfidence: 94.5,
+        diseaseConfidence: 91.2,
+        severity: 'High',
+        fertilizerName: 'Trichoderma viride',
+        dosage: '2.5 kg/acre',
+        application: 'Foliar spray',
+        frequency: 'Every 7 days',
+        createdAt: now,
+      );
+
+      final json = entry.toJson();
+      expect(json['id'], 'test-123');
+      expect(json['crop_name'], 'Tomato');
+      expect(json['disease_name'], 'Early Blight');
+      expect(json['crop_confidence'], 94.5);
+
+      final reconstructed = HistoryEntry.fromJson(json);
+      expect(reconstructed.id, 'test-123');
+      expect(reconstructed.cropName, 'Tomato');
+      expect(reconstructed.diseaseName, 'Early Blight');
+      expect(reconstructed.fertilizerName, 'Trichoderma viride');
+      expect(reconstructed.dosage, '2.5 kg/acre');
+    });
+
+    test('HistoryEntry reconstructs a valid PredictionResult with offline recommendation', () {
+      final entry = HistoryEntry(
+        id: 'test-456',
+        sessionId: 'session-abc',
+        cropName: 'Paddy',
+        diseaseName: 'Brown Spot',
+        cropConfidence: 89.0,
+        diseaseConfidence: 85.5,
+        severity: 'Medium',
+        fertilizerName: 'Edifenphos / Mancozeb',
+        createdAt: DateTime.now(),
+      );
+
+      final pred = entry.toPredictionResult();
+      expect(pred.crop, 'Paddy');
+      expect(pred.disease, 'Brown Spot');
+      expect(pred.cropConfidence, 89.0);
+      expect(pred.diseaseConfidence, 85.5);
+      expect(pred.hasRecommendation, true);
+      expect(pred.recommendation?.productName?.isNotEmpty, true);
+    });
+  });
 }
+
