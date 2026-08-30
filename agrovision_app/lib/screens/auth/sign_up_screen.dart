@@ -34,25 +34,105 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
+    // 1. Validate Form locally
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMsg = null; });
+    
+    // Clear keyboard
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
+
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
 
     final result = await AuthService().signUp(
-      email: _emailCtrl.text,
-      password: _passCtrl.text,
-      fullName: _nameCtrl.text,
+      email: email,
+      password: password,
+      fullName: name,
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result.isSuccess) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      if (result.requiresEmailVerification) {
+        _showVerificationDialog(email);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome to AgroVision AI, $name!'),
+            backgroundColor: AppTheme.emeraldGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     } else {
-      setState(() => _errorMsg = result.error);
+      setState(() => _errorMsg = result.error ?? 'Registration failed. Please check your details.');
     }
+  }
+
+  void _showVerificationDialog(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.all(28),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.emeraldGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.mark_email_read_rounded, size: 36, color: AppTheme.emeraldGreen),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Verify Your Email',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 20),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'We have sent a verification link to:\n$email\n\nPlease check your inbox and click the verification link to activate your AgroVision AI account.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, height: 1.5, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const SignInScreen()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emeraldGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Proceed to Sign In'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -84,7 +164,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       children: [
         Container(
-          width: 72, height: 72,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
             borderRadius: BorderRadius.circular(22),
@@ -93,9 +174,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: const Icon(Icons.eco_rounded, size: 40, color: Colors.white),
         ).animate().scale(duration: 500.ms, curve: Curves.elasticOut),
         const SizedBox(height: 12),
-        const Text('Join AgroVision AI', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 22, color: Colors.white)).animate().fadeIn(delay: 200.ms),
+        const Text(
+          'Join AgroVision AI',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 22, color: Colors.white),
+        ).animate().fadeIn(delay: 200.ms),
         const SizedBox(height: 4),
-        Text('Create your farmer account', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.white.withOpacity(0.7))).animate().fadeIn(delay: 300.ms),
+        Text(
+          'Create your farmer account',
+          style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.white.withOpacity(0.7)),
+        ).animate().fadeIn(delay: 300.ms),
       ],
     );
   }
@@ -105,7 +192,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          )
+        ],
       ),
       padding: const EdgeInsets.all(28),
       child: Form(
@@ -115,20 +208,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             Text(l10n.createAccount, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 20)),
             const SizedBox(height: 4),
-            Text(l10n.createAccountSubtitle, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: isDark ? Colors.white54 : Colors.black45)),
+            Text(
+              l10n.createAccountSubtitle,
+              style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: isDark ? Colors.white54 : Colors.black45),
+            ),
             const SizedBox(height: 22),
-            _buildField(label: l10n.fullNameLabel, controller: _nameCtrl, icon: Icons.person_outline_rounded, isDark: isDark,
-              validator: (v) => (v == null || v.trim().isEmpty) ? l10n.nameRequired : null),
+            _buildField(
+              label: l10n.fullNameLabel,
+              controller: _nameCtrl,
+              icon: Icons.person_outline_rounded,
+              isDark: isDark,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return l10n.nameRequired;
+                if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                return null;
+              },
+            ),
             const SizedBox(height: 14),
-            _buildField(label: l10n.emailLabel, controller: _emailCtrl, icon: Icons.email_outlined, isDark: isDark,
+            _buildField(
+              label: l10n.emailLabel,
+              controller: _emailCtrl,
+              icon: Icons.email_outlined,
+              isDark: isDark,
               keyboardType: TextInputType.emailAddress,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return l10n.emailRequired;
-                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(v.trim())) return l10n.emailInvalid;
+                final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                if (!emailRegex.hasMatch(v.trim())) return l10n.emailInvalid;
                 return null;
-              }),
+              },
+            ),
             const SizedBox(height: 14),
-            _buildField(label: l10n.passwordLabel, controller: _passCtrl, icon: Icons.lock_outline_rounded, isDark: isDark,
+            _buildField(
+              label: l10n.passwordLabel,
+              controller: _passCtrl,
+              icon: Icons.lock_outline_rounded,
+              isDark: isDark,
               obscureText: _obscurePass,
               suffix: IconButton(
                 onPressed: () => setState(() => _obscurePass = !_obscurePass),
@@ -138,9 +253,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 if (v == null || v.isEmpty) return l10n.passwordRequired;
                 if (v.length < 6) return l10n.passwordTooShort;
                 return null;
-              }),
+              },
+            ),
             const SizedBox(height: 14),
-            _buildField(label: l10n.confirmPasswordLabel, controller: _confirmPassCtrl, icon: Icons.lock_person_outlined, isDark: isDark,
+            _buildField(
+              label: l10n.confirmPasswordLabel,
+              controller: _confirmPassCtrl,
+              icon: Icons.lock_person_outlined,
+              isDark: isDark,
               obscureText: _obscureConfirm,
               suffix: IconButton(
                 onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
@@ -150,20 +270,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 if (v == null || v.isEmpty) return l10n.confirmPasswordRequired;
                 if (v != _passCtrl.text) return l10n.passwordsDoNotMatch;
                 return null;
-              }),
+              },
+            ),
             if (_errorMsg != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
-                child: Row(children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_errorMsg!, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Color(0xFF991B1B)))),
-                ]),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMsg!,
+                        style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, height: 1.4, color: Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -186,8 +322,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
               children: [
                 Text(l10n.haveAccount, style: const TextStyle(fontFamily: 'Poppins', fontSize: 13)),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const SignInScreen())),
-                  child: Text(l10n.signIn, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, color: AppTheme.emeraldGreen, fontSize: 13)),
+                  onPressed: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const SignInScreen()),
+                  ),
+                  child: Text(
+                    l10n.signIn,
+                    style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, color: AppTheme.emeraldGreen, fontSize: 13),
+                  ),
                 ),
               ],
             ),

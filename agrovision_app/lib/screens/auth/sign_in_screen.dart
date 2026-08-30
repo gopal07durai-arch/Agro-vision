@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/app_localizations.dart';
@@ -31,10 +31,15 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMsg = null; });
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
 
     final result = await AuthService().signIn(
-      email: _emailCtrl.text,
+      email: _emailCtrl.text.trim(),
       password: _passCtrl.text,
     );
 
@@ -42,23 +47,38 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = false);
 
     if (result.isSuccess) {
+      final name = AuthService().currentUserName;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(name.isNotEmpty ? 'Welcome back, $name!' : 'Welcome back!'),
+          backgroundColor: AppTheme.emeraldGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } else {
-      setState(() => _errorMsg = result.error);
+      setState(() => _errorMsg = result.error ?? 'Sign in failed. Please check your credentials.');
     }
   }
 
   Future<void> _forgotPassword() async {
-    if (_emailCtrl.text.trim().isEmpty) {
-      setState(() => _errorMsg = 'Please enter your email first.');
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMsg = 'Please enter your email address in the field above to reset your password.');
       return;
     }
-    setState(() { _isLoading = true; _errorMsg = null; });
-    final result = await AuthService().resetPassword(_emailCtrl.text);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
+    final result = await AuthService().resetPassword(email);
     if (!mounted) return;
-    setState(() { _isLoading = false; _errorMsg = result.isSuccess ? result.message : result.error; });
+    setState(() {
+      _isLoading = false;
+      _errorMsg = result.isSuccess ? result.message : result.error;
+    });
   }
 
   void _continueAsGuest() {
