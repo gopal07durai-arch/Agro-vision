@@ -163,6 +163,47 @@ class AppLocalizations {
   String get aiChatHistoryLabel => tr('ai_chat_history_label');
   String get selectOrEnterCrop => tr('select_or_enter_crop');
 
+  // ── Authentication ─────────────────────────────────────────────────────────
+  String get signIn => tr('sign_in');
+  String get signUp => tr('sign_up');
+  String get signOut => tr('sign_out');
+  String get signInSubtitle => tr('sign_in_subtitle');
+  String get createAccount => tr('create_account');
+  String get createAccountSubtitle => tr('create_account_subtitle');
+  String get fullNameLabel => tr('full_name_label');
+  String get emailLabel => tr('email_label');
+  String get passwordLabel => tr('password_label');
+  String get confirmPasswordLabel => tr('confirm_password_label');
+  String get forgotPassword => tr('forgot_password');
+  String get noAccount => tr('no_account');
+  String get haveAccount => tr('have_account');
+  String get continueAsGuest => tr('continue_as_guest');
+  String get guestLimitNote => tr('guest_limit_note');
+  String get orContinueWith => tr('or_continue_with');
+
+  // Field validators
+  String get nameRequired => tr('name_required');
+  String get emailRequired => tr('email_required');
+  String get emailInvalid => tr('email_invalid');
+  String get passwordRequired => tr('password_required');
+  String get passwordTooShort => tr('password_too_short');
+  String get confirmPasswordRequired => tr('confirm_password_required');
+  String get passwordsDoNotMatch => tr('passwords_do_not_match');
+
+  // ── Scan Limit ─────────────────────────────────────────────────────────────
+  String get scanLimitTitle => tr('scan_limit_title');
+  String get scanLimitMessage => tr('scan_limit_message');
+  String get signUpToScan => tr('sign_up_to_scan');
+  String scansUsedOf(int used, int total) => tr('scans_used_of').replaceAll('{used}', '$used').replaceAll('{total}', '$total');
+  String get freeScansLabel => tr('free_scans_label');
+  String get unlimitedScansLabel => tr('unlimited_scans_label');
+
+  // ── Profile / Greeting ─────────────────────────────────────────────────────
+  String get greetingGuest => tr('greeting_guest');
+  String greetingUser(String name) => tr('greeting_user').replaceAll('{name}', name);
+  String get profileTitle => tr('profile_title');
+  String get aiAssistantLoginRequired => tr('ai_assistant_login_required');
+  String get loginToAccessAssistant => tr('login_to_access_assistant');
 
 
   List<String> get chatSuggestions {
@@ -938,6 +979,42 @@ class AppLocalizations {
 
       'expert_disclaimer': 'This AI tool provides guidance only. Always consult a certified agricultural expert before applying any treatment.',
 
+      // ── Auth & Scan Limit (English) ─────────────────────────────────────
+      'sign_in': 'Sign In',
+      'sign_up': 'Sign Up',
+      'sign_out': 'Sign Out',
+      'sign_in_subtitle': 'Welcome back! Sign in to your account.',
+      'create_account': 'Create Account',
+      'create_account_subtitle': 'Join AgroVision AI and get unlimited scans.',
+      'full_name_label': 'Full Name',
+      'email_label': 'Email Address',
+      'password_label': 'Password',
+      'confirm_password_label': 'Confirm Password',
+      'forgot_password': 'Forgot Password?',
+      'no_account': "Don't have an account?",
+      'have_account': 'Already have an account?',
+      'continue_as_guest': 'Continue as Guest',
+      'guest_limit_note': 'Guests get 5 free scans per month',
+      'or_continue_with': 'or',
+      'name_required': 'Please enter your full name',
+      'email_required': 'Please enter your email address',
+      'email_invalid': 'Please enter a valid email address',
+      'password_required': 'Please enter your password',
+      'password_too_short': 'Password must be at least 6 characters',
+      'confirm_password_required': 'Please confirm your password',
+      'passwords_do_not_match': 'Passwords do not match',
+      'scan_limit_title': 'Monthly Scan Limit Reached',
+      'scan_limit_message': "You've used all 5 free scans this month. Sign up for unlimited scans!",
+      'sign_up_to_scan': 'Sign Up for Unlimited Scans',
+      'scans_used_of': '{used} / {total} free scans used',
+      'free_scans_label': 'Free Scans',
+      'unlimited_scans_label': 'Unlimited Scans',
+      'greeting_guest': 'Hello, Farmer! 👋',
+      'greeting_user': 'Hello, {name}! 👋',
+      'profile_title': 'My Profile',
+      'ai_assistant_login_required': 'Sign In Required',
+      'login_to_access_assistant': 'Please sign in to access the AI Assistant.',
+
     },
 
 
@@ -1337,6 +1414,42 @@ class AppLocalizations {
 
       'expert_disclaimer': 'இந்த AI கருவி வழிகாட்டுதலை மட்டுமே வழங்குகிறது. எந்தவொரு சிகிச்சையையும் பயன்படுத்துவதற்கு முன்பு சான்றளிக்கப்பட்ட வேளாண் நிபுணரை அணுகவும்.',
 
+      // ── Auth & Scan Limit (Tamil)
+      'sign_in': 'உள்நுழைக',
+      'sign_up': 'பதிவு செய்க',
+      'sign_out': 'வெளியேறு',
+      'sign_in_subtitle': 'மீண்டும் வரவேற்கிறோம்! உங்கள் கணக்கில் உள்நுழைக.',
+      'create_account': 'கணக்கு உருவாக்கவும்',
+      'create_account_subtitle': 'AgroVision AI-ல் இணைந்து வரம்பற்ற ஸ்கேன்கள் பெறுங்கள்.',
+      'full_name_label': 'முழு பெயர்',
+      'email_label': 'மின்னஞ்சல் முகவரி',
+      'password_label': 'கடவுச்சொல்',
+      'confirm_password_label': 'கடவுச்சொல் உறுதிப்படுத்தவும்',
+      'forgot_password': 'கடவுச்சொல் மறந்துவிட்டீர்களா?',
+      'no_account': 'கணக்கு இல்லையா?',
+      'have_account': 'ஏற்கனவே கணக்கு உள்ளதா?',
+      'continue_as_guest': 'விருந்தினராக தொடரவும்',
+      'guest_limit_note': 'விருந்தினர்களுக்கு மாதம் 5 இலவச ஸ்கேன்கள் உள்ளன',
+      'or_continue_with': 'அல்லது',
+      'name_required': 'உங்கள் முழு பெயரை உள்ளிடவும்',
+      'email_required': 'உங்கள் மின்னஞ்சல் முகவரியை உள்ளிடவும்',
+      'email_invalid': 'சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும்',
+      'password_required': 'உங்கள் கடவுச்சொல்லை உள்ளிடவும்',
+      'password_too_short': 'கடவுச்சொல் குறைந்தது 6 எழுத்துக்கள் இருக்க வேண்டும்',
+      'confirm_password_required': 'உங்கள் கடவுச்சொல்லை உறுதிப்படுத்தவும்',
+      'passwords_do_not_match': 'கடவுச்சொற்கள் பொருந்தவில்லை',
+      'scan_limit_title': 'மாதாந்திர ஸ்கேன் வரம்பை எட்டிவிட்டீர்கள்',
+      'scan_limit_message': 'இந்த மாதம் 5 இலவச ஸ்கேன்களை பயன்படுத்திவிட்டீர்கள். வரம்பற்ற ஸ்கேன்களுக்கு பதிவு செய்யுங்கள்!',
+      'sign_up_to_scan': 'வரம்பற்ற ஸ்கேன்களுக்கு பதிவு செய்யுங்கள்',
+      'scans_used_of': '{used} / {total} இலவச ஸ்கேன்கள் பயன்படுத்தப்பட்டன',
+      'free_scans_label': 'இலவச ஸ்கேன்கள்',
+      'unlimited_scans_label': 'வரம்பற்ற ஸ்கேன்கள்',
+      'greeting_guest': 'வணக்கம், விவசாயி! 👋',
+      'greeting_user': 'வணக்கம், {name}! 👋',
+      'profile_title': 'என் சுயவிவரம்',
+      'ai_assistant_login_required': 'உள்நுழைவு தேவை',
+      'login_to_access_assistant': 'AI உதவியாளரை அணுக உள்நுழைக.',
+
     },
 
 
@@ -1734,6 +1847,42 @@ class AppLocalizations {
 
       'expert_disclaimer': 'यह AI उपकरण केवल मार्गदर्शन प्रदान करता है। किसी भी उपचार को लागू करने से पहले हमेशा एक प्रमाणित कृषि विशेषज्ञ से परामर्श करें।',
 
+      // ── Auth & Scan Limit (Hindi)
+      'sign_in': 'साइन इन',
+      'sign_up': 'साइन अप',
+      'sign_out': 'साइन आउट',
+      'sign_in_subtitle': 'वापस स्वागत है! अपने खाते में साइन इन करें।',
+      'create_account': 'खाता बनाएं',
+      'create_account_subtitle': 'AgroVision AI से जुड़ें और असीमित स्कैन पाएं।',
+      'full_name_label': 'पूरा नाम',
+      'email_label': 'ईमेल पता',
+      'password_label': 'पासवर्ड',
+      'confirm_password_label': 'पासवर्ड पुष्टि करें',
+      'forgot_password': 'पासवर्ड भूल गए?',
+      'no_account': 'खाता नहीं है?',
+      'have_account': 'पहले से खाता है?',
+      'continue_as_guest': 'अतिथि के रूप में जारी रखें',
+      'guest_limit_note': 'अतिथियों को मासिक 5 मुफ़्त स्कैन मिलते हैं',
+      'or_continue_with': 'या',
+      'name_required': 'कृपया अपना पूरा नाम दर्ज करें',
+      'email_required': 'कृपया अपना ईमेल पता दर्ज करें',
+      'email_invalid': 'कृपया वैध ईमेल पता दर्ज करें',
+      'password_required': 'कृपया अपना पासवर्ड दर्ज करें',
+      'password_too_short': 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए',
+      'confirm_password_required': 'कृपया अपना पासवर्ड पुष्टि करें',
+      'passwords_do_not_match': 'पासवर्ड मेल नहीं खाते',
+      'scan_limit_title': 'मासिक स्कैन सीमा पूरी हुई',
+      'scan_limit_message': 'आपने इस महीने 5 मुफ़्त स्कैन का उपयोग कर लिया है। असीमित स्कैन के लिए साइन अप करें!',
+      'sign_up_to_scan': 'असीमित स्कैन के लिए साइन अप करें',
+      'scans_used_of': '{used} / {total} मुफ़्त स्कैन उपयोग किए गए',
+      'free_scans_label': 'मुफ़्त स्कैन',
+      'unlimited_scans_label': 'असीमित स्कैन',
+      'greeting_guest': 'नमस्ते, किसान! 👋',
+      'greeting_user': 'नमस्ते, {name}! 👋',
+      'profile_title': 'मेरा प्रोफाइल',
+      'ai_assistant_login_required': 'साइन इन आवश्यक',
+      'login_to_access_assistant': 'AI सहायक तक पहुंचने के लिए साइन इन करें।',
+
     },
 
 
@@ -2110,6 +2259,42 @@ class AppLocalizations {
       'disease_threshold_label': '50% കൃത്യതാ പരിധി',
 
       'expert_disclaimer': 'ഈ AI ടൂൾ ഒരു വഴികാട്ടി മാത്രമാണ്. ഏതെങ്കിലും ചികിത്സ പ്രയോഗിക്കുന്നതിന് മുൻപ് സാക്ഷ്യപ്പെടുത്തിയ കാർഷിക വിദഗ്ദ്ധനെ സമീപിക്കുക.',
+
+      // ── Auth & Scan Limit (Malayalam)
+      'sign_in': 'സൈൻ ഇൻ',
+      'sign_up': 'സൈൻ അപ്',
+      'sign_out': 'സൈൻ ഔട്ട്',
+      'sign_in_subtitle': 'തിരിച്ചു സ്വാഗതം! നിങ്ങളുടെ അക്കൗണ്ടിൽ സൈൻ ഇൻ ചെയ്യുക.',
+      'create_account': 'അക്കൗണ്ട് ഉണ്ടാക്കുക',
+      'create_account_subtitle': 'AgroVision AI-ൽ ചേർന്ന് പരിധിയില്ലാത്ത സ്കാനുകൾ നേടുക.',
+      'full_name_label': 'മുഴുവൻ പേര്',
+      'email_label': 'ഇമെയിൽ വിലാസം',
+      'password_label': 'പാസ്‌വേഡ്',
+      'confirm_password_label': 'പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക',
+      'forgot_password': 'പാസ്‌വേഡ് മറന്നോ?',
+      'no_account': 'അക്കൗണ്ട് ഇല്ലേ?',
+      'have_account': 'ഇതിനകം അക്കൗണ്ട് ഉണ്ടോ?',
+      'continue_as_guest': 'അതിഥിയായി തുടരുക',
+      'guest_limit_note': 'അതിഥികൾക്ക് മാസം 5 സൗജന്യ സ്കാനുകൾ ലഭിക്കും',
+      'or_continue_with': 'അല്ലെങ്കിൽ',
+      'name_required': 'ദയവായി നിങ്ങളുടെ മുഴുവൻ പേര് നൽകുക',
+      'email_required': 'ദയവായി ഇമെയിൽ വിലാസം നൽകുക',
+      'email_invalid': 'ദയവായി സാധുവായ ഇമെയിൽ നൽകുക',
+      'password_required': 'ദയവായി പാസ്‌വേഡ് നൽകുക',
+      'password_too_short': 'പാസ്‌വേഡ് കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ ഉണ്ടായിരിക്കണം',
+      'confirm_password_required': 'ദയവായി പാസ്‌വേഡ് സ്ഥിരീകരിക്കുക',
+      'passwords_do_not_match': 'പാസ്‌വേഡുകൾ പൊരുത്തപ്പെടുന്നില്ല',
+      'scan_limit_title': 'മാസ സ്കാൻ പരിധി എത്തി',
+      'scan_limit_message': 'ഈ മാസം 5 സൗജന്യ സ്കാനുകൾ ഉപയോഗിച്ചു. പരിധിയില്ലാത്ത സ്കാനുകൾക്ക് സൈൻ അപ് ചെയ്യൂ!',
+      'sign_up_to_scan': 'പരിധിയില്ലാത്ത സ്കാനുകൾക്ക് സൈൻ അപ് ചെയ്യൂ',
+      'scans_used_of': '{used} / {total} സൗജന്യ സ്കാനുകൾ ഉപയോഗിച്ചു',
+      'free_scans_label': 'സൗജന്യ സ്കാനുകൾ',
+      'unlimited_scans_label': 'പരിധിയില്ലാത്ത സ്കാനുകൾ',
+      'greeting_guest': 'നമസ്കാരം, കർഷകൻ! 👋',
+      'greeting_user': 'നമസ്കാരം, {name}! 👋',
+      'profile_title': 'എന്റെ പ്രൊഫൈൽ',
+      'ai_assistant_login_required': 'സൈൻ ഇൻ ആവശ്യമാണ്',
+      'login_to_access_assistant': 'AI അസിസ്റ്റന്റ് ആക്സസ് ചെയ്യാൻ സൈൻ ഇൻ ചെയ്യുക.',
 
     },
 

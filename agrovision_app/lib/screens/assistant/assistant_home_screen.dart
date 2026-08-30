@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/providers/app_provider.dart';
 import '../../models/chat_conversation.dart';
 import '../../services/chat_supabase_service.dart';
+import '../auth/sign_in_screen.dart';
 import 'chat_screen.dart';
 import 'crop_disease_screen.dart';
 
@@ -39,6 +42,12 @@ class _AssistantHomeScreenState extends State<AssistantHomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context);
+    final isLoggedIn = context.watch<AppProvider>().isLoggedIn;
+
+    // Auth Gate: guests see a sign-in prompt
+    if (!isLoggedIn) {
+      return _buildAuthGate(context, isDark, l10n);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -531,5 +540,127 @@ class _AssistantHomeScreenState extends State<AssistantHomeScreen> {
         ),
       ],
     ).animate().fadeIn(duration: 400.ms, delay: 300.ms);
+  }
+  Widget _buildAuthGate(BuildContext context, bool isDark, AppLocalizations l10n) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF0FDF4),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.emeraldGreen.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.smart_toy_rounded, color: AppTheme.emeraldGreen, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Text(l10n.aiAssistantTitle, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 18)),
+          ],
+        ),
+        elevation: 0,
+        backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100, height: 100,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.emeraldGreen, Color(0xFF059669)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [BoxShadow(color: AppTheme.emeraldGreen.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8))],
+                ),
+                child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 52),
+              ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
+              const SizedBox(height: 28),
+              Text(
+                l10n.aiAssistantLoginRequired,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 22,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ).animate().fadeIn(delay: 200.ms),
+              const SizedBox(height: 10),
+              Text(
+                l10n.loginToAccessAssistant,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 14, height: 1.5, color: isDark ? Colors.white60 : const Color(0xFF64748B)),
+              ).animate().fadeIn(delay: 300.ms),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.emeraldGreen.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    _authFeatureRow(Icons.chat_bubble_rounded, 'Real-time AI farming answers', isDark),
+                    const SizedBox(height: 8),
+                    _authFeatureRow(Icons.eco_rounded, 'Crop & Disease Care guidance', isDark),
+                    const SizedBox(height: 8),
+                    _authFeatureRow(Icons.history_rounded, 'Persistent chat history', isDark),
+                    const SizedBox(height: 8),
+                    _authFeatureRow(Icons.language_rounded, '4 language support', isDark),
+                  ],
+                ),
+              ).animate().fadeIn(delay: 400.ms),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignInScreen(showGuestOption: false))),
+                  icon: const Icon(Icons.login_rounded),
+                  label: Text(l10n.signIn),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emeraldGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+              ).animate().fadeIn(delay: 500.ms),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignInScreen())),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: AppTheme.emeraldGreen.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                    foregroundColor: AppTheme.emeraldGreen,
+                  ),
+                  child: Text(l10n.createAccount),
+                ),
+              ).animate().fadeIn(delay: 600.ms),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _authFeatureRow(IconData icon, String text, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.emeraldGreen, size: 18),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w500, color: isDark ? Colors.white70 : const Color(0xFF374151)))),
+      ],
+    );
   }
 }

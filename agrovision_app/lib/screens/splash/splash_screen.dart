@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../home/home_screen.dart';
+import '../auth/sign_in_screen.dart';
+import '../../services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/app_localizations.dart';
 
@@ -23,12 +25,15 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 2200),
     )..forward();
 
-    // Navigate to Home after splash
+    // Navigate to Home or Sign In after splash
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) {
+        // Check if user is already logged in
+        final isLoggedIn = AuthService().isLoggedIn;
+        final destination = isLoggedIn ? const HomeScreen() : const SignInScreen();
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const HomeScreen(),
+            pageBuilder: (_, __, ___) => destination,
             transitionDuration: const Duration(milliseconds: 600),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),

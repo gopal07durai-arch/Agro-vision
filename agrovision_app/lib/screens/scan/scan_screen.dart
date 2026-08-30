@@ -9,9 +9,11 @@ import '../../core/l10n/app_localizations.dart';
 import '../../services/image_service.dart';
 import '../../services/detection_service.dart';
 import '../../services/on_device_ml_service.dart';
+import '../../services/scan_limit_service.dart';
 import '../../models/api_error.dart';
 import '../result/result_screen.dart';
 import '../settings/settings_screen.dart';
+import '../auth/sign_up_screen.dart';
 import '../../widgets/leaf_image_view.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -75,6 +77,13 @@ class _ScanScreenState extends State<ScanScreen>
     final sessionId = context.read<AppProvider>().sessionId;
     final l10n = AppLocalizations.of(context);
 
+    // Check guest scan limit before proceeding
+    final isLimitReached = await ScanLimitService().isGuestLimitReached();
+    if (isLimitReached && mounted) {
+      _showScanLimitDialog(l10n);
+      return;
+    }
+
     setState(() {
       _isAnalyzing = true;
       _analysisStep = l10n.preparingImage;
@@ -85,6 +94,9 @@ class _ScanScreenState extends State<ScanScreen>
 
     try {
       final result = await _detection.analyze(_selectedImage!, sessionId);
+
+      // Increment scan count for guest after successful analysis
+      await ScanLimitService().incrementGuestScan();
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -109,6 +121,60 @@ class _ScanScreenState extends State<ScanScreen>
       _detection.removeListener(_onDetectionProgress);
       if (mounted) setState(() => _isAnalyzing = false);
     }
+  }
+
+  void _showScanLimitDialog(AppLocalizations l10n) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        contentPadding: const EdgeInsets.all(28),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64, height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.lock_clock_rounded, size: 34, color: Color(0xFFD97706)),
+            ),
+            const SizedBox(height: 16),
+            Text(l10n.scanLimitTitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 18)),
+            const SizedBox(height: 10),
+            Text(l10n.scanLimitMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: Color(0xFF64748B))),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignUpScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emeraldGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                ),
+                child: Text(l10n.signUpToScan),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancel, style: const TextStyle(fontFamily: 'Poppins', color: Color(0xFF64748B))),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onDetectionProgress() {

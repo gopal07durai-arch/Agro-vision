@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/scan_limit_service.dart';
+import '../auth/sign_in_screen.dart';
 import '../scan/scan_screen.dart';
 import '../history/history_screen.dart';
 import '../about/about_screen.dart';
@@ -284,6 +288,10 @@ class _HomeTab extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context, bool isDark) {
     final l10n = AppLocalizations.of(context);
+    final appProvider = context.watch<AppProvider>();
+    final isLoggedIn = appProvider.isLoggedIn;
+    final userName = appProvider.currentUserName;
+
     return Row(
       children: [
         Container(
@@ -335,7 +343,9 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
             Text(
-              l10n.cropDiseaseDetection,
+              isLoggedIn && userName.isNotEmpty
+                  ? l10n.greetingUser(userName)
+                  : l10n.cropDiseaseDetection,
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 11,
@@ -349,6 +359,52 @@ class _HomeTab extends StatelessWidget {
         // Backend status dot
         _BackendStatusDot(isDark: isDark),
         const SizedBox(width: 8),
+        // Auth / Profile button
+        if (!isLoggedIn)
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SignInScreen(showGuestOption: false),
+              ));
+            },
+            icon: const Icon(Icons.person_outline_rounded, size: 20),
+            tooltip: l10n.signIn,
+            style: IconButton.styleFrom(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          )
+        else
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SettingsScreen(),
+              ));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppTheme.emeraldGreen,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(width: 8),
         // Settings button
         IconButton(
           onPressed: () {
@@ -356,7 +412,7 @@ class _HomeTab extends StatelessWidget {
               builder: (_) => const SettingsScreen(),
             ));
           },
-          icon: const Icon(Icons.settings_outlined),
+          icon: const Icon(Icons.settings_outlined, size: 20),
           style: IconButton.styleFrom(
             backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
             shape: RoundedRectangleBorder(
@@ -370,33 +426,88 @@ class _HomeTab extends StatelessWidget {
 
   Widget _buildHeroSection(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final appProvider = context.watch<AppProvider>();
+    final isLoggedIn = appProvider.isLoggedIn;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppTheme.emeraldGreen.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-                color: AppTheme.emeraldGreen.withOpacity(0.3), width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.auto_awesome, size: 13, color: AppTheme.emeraldGreen),
-              const SizedBox(width: 6),
-              Text(
-                l10n.aiPoweredAgriculture,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.emeraldGreen,
-                ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.emeraldGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                    color: AppTheme.emeraldGreen.withOpacity(0.3), width: 1),
               ),
-            ],
-          ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_awesome, size: 13, color: AppTheme.emeraldGreen),
+                  const SizedBox(width: 6),
+                  Text(
+                    l10n.aiPoweredAgriculture,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.emeraldGreen,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Quota badge
+            FutureBuilder<int>(
+              future: ScanLimitService().getGuestScanCount(),
+              builder: (ctx, snapshot) {
+                final count = snapshot.data ?? 0;
+                final limit = ScanLimitService.guestMonthlyLimit;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isLoggedIn
+                        ? const Color(0xFF10B981).withOpacity(0.12)
+                        : (count >= limit ? const Color(0xFFEF4444).withOpacity(0.12) : const Color(0xFFF59E0B).withOpacity(0.12)),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: isLoggedIn
+                          ? const Color(0xFF10B981).withOpacity(0.3)
+                          : (count >= limit ? const Color(0xFFEF4444).withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.3)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isLoggedIn ? Icons.verified_rounded : Icons.camera_outlined,
+                        size: 13,
+                        color: isLoggedIn
+                            ? const Color(0xFF10B981)
+                            : (count >= limit ? const Color(0xFFEF4444) : const Color(0xFFF59E0B)),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isLoggedIn ? l10n.unlimitedScansLabel : l10n.scansUsedOf(count, limit),
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isLoggedIn
+                              ? const Color(0xFF10B981)
+                              : (count >= limit ? const Color(0xFFEF4444) : const Color(0xFFD97706)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
         ).animate().slideX(begin: -0.2, duration: 500.ms).fadeIn(),
         const SizedBox(height: 16),
         Text(

@@ -194,7 +194,70 @@ def _get_gemini():
 
 
 def _get_model_name() -> str:
-    return os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+
+def _extract_json_from_text(raw_text: str) -> Optional[dict]:
+    """
+    Robustly extract a JSON object from Gemini's response.
+    Handles:
+      1. ```json ... ``` code block
+      2. ``` ... ``` code block (no language tag)
+      3. Plain JSON (entire response is JSON)
+      4. JSON embedded anywhere in the text
+    Returns parsed dict or None.
+    """
+    if not raw_text or not raw_text.strip():
+        return None
+
+    text = raw_text.strip()
+
+    # Strategy 1: markdown ```json ... ``` block
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 2: entire text is valid JSON
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: find the first complete top-level { ... } block
+    start = text.find('{')
+    if start != -1:
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start:i + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    # Strategy 4: strip markdown artifacts and retry
+    cleaned = re.sub(r"^```[a-z]*\s*", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        parsed = json.loads(cleaned.strip())
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    return None
 
 
 # ── Handler for AI Chat ───────────────────────────────────────────────────────
@@ -343,8 +406,9 @@ Disease/Problem: {disease_in}
 
 {rec_context}
 
-Respond in the following JSON format:
-```json
+IMPORTANT: You MUST respond with ONLY a valid JSON object. Do NOT include any markdown, code fences, backticks, or extra text before or after the JSON.
+
+Respond with exactly this JSON structure (all values in {lang_name}):
 {{
   "crop": "{crop_in}",
   "disease": "{disease_in}",
@@ -358,27 +422,26 @@ Respond in the following JSON format:
   "precautions": "Safety measures, PPE, pre-harvest interval, and when to consult an agronomist.",
   "formatted_text": "A complete, beautifully formatted farmer-friendly guide with emojis and clear sections."
 }}
-```
 
-CRITICAL RULES:
-1. Every string value inside the JSON MUST be translated into {lang_name}.
-2. Provide practical, accurate, farmer-friendly guidance.
-3. Return ONLY valid JSON wrapped in ```json ... ```.
+RULES:
+1. ALL string values must be written in {lang_name}.
+2. Return ONLY the JSON object — no other text, no code fences, no backticks.
+3. Provide practical, accurate, farmer-friendly guidance.
 """
 
+    raw_text = ""
     try:
         sdk_type, client_or_model = _get_gemini()
         model_name = _get_model_name()
 
-        raw_text = ""
         if sdk_type == "genai_new":
             from google.genai import types  # type: ignore
             res = client_or_model.models.generate_content(
                 model=model_name,
                 contents=structured_prompt,
                 config=types.GenerateContentConfig(
-                    temperature=0.4,
-                    max_output_tokens=2000,
+                    temperature=0.3,
+                    max_output_tokens=2500,
                 ),
             )
             raw_text = (res.text or "").strip()
@@ -386,52 +449,73 @@ CRITICAL RULES:
             res = client_or_model.generate_content(structured_prompt)
             raw_text = (res.text or "").strip()
 
-        # Parse JSON from markdown codeblock
-        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
-        if json_match:
-            parsed = json.loads(json_match.group(1))
-        else:
-            parsed = json.loads(raw_text)
+        logger.info(f"[CropDisease] Gemini raw response length: {len(raw_text)} chars")
+        if raw_text:
+            logger.info(f"[CropDisease] Raw preview: {raw_text[:200]}")
 
-        logger.info(f"[CropDisease] OK crop={crop_in} disease={disease_in} lang={lang}")
-        return _resp(200, {
-            "success": True,
-            "crop": parsed.get("crop", crop_in),
-            "disease": parsed.get("disease", disease_in),
-            "overview": parsed.get("overview", ""),
-            "symptoms": parsed.get("symptoms", ""),
-            "fertilizer": parsed.get("fertilizer", ""),
-            "treatment": parsed.get("treatment", ""),
-            "dosage": parsed.get("dosage", ""),
-            "timing": parsed.get("timing", ""),
-            "prevention": parsed.get("prevention", ""),
-            "precautions": parsed.get("precautions", ""),
-            "response": parsed.get("formatted_text", raw_text),
-            "language": lang,
-        })
+        # Use robust JSON extraction (handles all Gemini response formats)
+        parsed = _extract_json_from_text(raw_text)
+
+        if parsed:
+            logger.info(f"[CropDisease] OK crop={crop_in} disease={disease_in} lang={lang}")
+            return _resp(200, {
+                "success": True,
+                "crop": parsed.get("crop", crop_in),
+                "disease": parsed.get("disease", disease_in),
+                "overview": parsed.get("overview", ""),
+                "symptoms": parsed.get("symptoms", ""),
+                "fertilizer": parsed.get("fertilizer", ""),
+                "treatment": parsed.get("treatment", ""),
+                "dosage": parsed.get("dosage", ""),
+                "timing": parsed.get("timing", ""),
+                "prevention": parsed.get("prevention", ""),
+                "precautions": parsed.get("precautions", ""),
+                "response": parsed.get("formatted_text", raw_text),
+                "language": lang,
+            })
+        elif raw_text:
+            # JSON parse failed but we have text — return it as the response
+            logger.warning(f"[CropDisease] JSON extraction failed, returning raw text as response")
+            return _resp(200, {
+                "success": True,
+                "crop": crop_in,
+                "disease": disease_in,
+                "overview": "",
+                "symptoms": "",
+                "fertilizer": "",
+                "treatment": "",
+                "dosage": "",
+                "timing": "",
+                "prevention": "",
+                "precautions": "",
+                "response": raw_text,
+                "language": lang,
+            })
+        else:
+            raise ValueError("Gemini returned an empty response")
 
     except Exception as e:
-        logger.error(f"[CropDisease] Error: {e}", exc_info=True)
-        # Fallback if JSON parse or AI fails but DB has info
+        logger.error(f"[CropDisease] Error: {e}. Raw was: '{raw_text[:200] if raw_text else 'empty'}'", exc_info=True)
+        # Fallback if AI fails but DB has info
         if matched_rec:
-                dosage_val = str(matched_rec.get('dosage', '')).strip()
-                unit_val = str(matched_rec.get('dosage_unit', '')).strip()
-                clean_dosage = dosage_val if (unit_val.lower() in dosage_val.lower() or not unit_val) else f"{dosage_val} {unit_val}"
-                return _resp(200, {
-                    "success": True,
-                    "crop": crop_in,
-                    "disease": disease_in,
-                    "overview": matched_rec.get("purpose", ""),
-                    "symptoms": f"Common symptoms of {disease_in} in {crop_in}.",
-                    "fertilizer": matched_rec.get("organic_alternative", "Balanced NPK fertilizer per soil test."),
-                    "treatment": f"{matched_rec.get('product_name', '')} ({matched_rec.get('active_ingredient', '')})",
-                    "dosage": clean_dosage,
-                    "timing": matched_rec.get("application_timing", ""),
-                    "prevention": matched_rec.get("prevention", ""),
-                    "precautions": matched_rec.get("precautions", ""),
-                    "response": f"**{crop_in} — {disease_in}**\n\nTreatment: {matched_rec.get('product_name', '')}\nDosage: {clean_dosage}\nApplication: {matched_rec.get('application_method', '')}\nPrevention: {matched_rec.get('prevention', '')}",
-                    "language": lang,
-                })
+            dosage_val = str(matched_rec.get('dosage', '')).strip()
+            unit_val = str(matched_rec.get('dosage_unit', '')).strip()
+            clean_dosage = dosage_val if (unit_val.lower() in dosage_val.lower() or not unit_val) else f"{dosage_val} {unit_val}"
+            return _resp(200, {
+                "success": True,
+                "crop": crop_in,
+                "disease": disease_in,
+                "overview": matched_rec.get("purpose", ""),
+                "symptoms": f"Common symptoms of {disease_in} in {crop_in}.",
+                "fertilizer": matched_rec.get("organic_alternative", "Balanced NPK fertilizer per soil test."),
+                "treatment": f"{matched_rec.get('product_name', '')} ({matched_rec.get('active_ingredient', '')})",
+                "dosage": clean_dosage,
+                "timing": matched_rec.get("application_timing", ""),
+                "prevention": matched_rec.get("prevention", ""),
+                "precautions": matched_rec.get("precautions", ""),
+                "response": f"**{crop_in} — {disease_in}**\n\nTreatment: {matched_rec.get('product_name', '')}\nDosage: {clean_dosage}\nApplication: {matched_rec.get('application_method', '')}\nPrevention: {matched_rec.get('prevention', '')}",
+                "language": lang,
+            })
 
         return _resp(500, {
             "success": False,

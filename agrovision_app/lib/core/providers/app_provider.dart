@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/api_config.dart';
 import '../constants/app_config.dart';
+import '../../services/auth_service.dart';
 
 /// Central state management via ChangeNotifier / Provider
 class AppProvider extends ChangeNotifier {
@@ -12,6 +14,7 @@ class AppProvider extends ChangeNotifier {
 
   AppProvider() {
     _loadPreferences();
+    _listenToAuthChanges();
   }
 
   bool get darkMode => _darkMode;
@@ -19,6 +22,17 @@ class AppProvider extends ChangeNotifier {
   String get sessionId => _sessionId;
   String get apiBaseUrl =>
       _apiBaseUrl.isNotEmpty ? _apiBaseUrl : ApiConfig.baseUrl;
+
+  bool get isLoggedIn => AuthService().isLoggedIn;
+  String get currentUserName => AuthService().currentUserName;
+
+  void _listenToAuthChanges() {
+    try {
+      Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+        notifyListeners();
+      });
+    } catch (_) {}
+  }
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();

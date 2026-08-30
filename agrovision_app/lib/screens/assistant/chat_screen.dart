@@ -38,7 +38,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   late ChatConversation _conversation;
   bool _isLoading = false;
   bool _showSuggestions = true;
-  String? _pendingUserMessage;
 
   @override
   void initState() {

@@ -73,9 +73,9 @@ class ChatSupabaseService {
             .select()
             .eq('conversation_id', id)
             .order('created_at', ascending: true);
-        if (msgs is List && msgs.isNotEmpty) {
-          final remoteMessages = msgs
-              .map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+        if (msgs.isNotEmpty) {
+          final remoteMessages = (msgs as List)
+              .map((m) => ChatMessage.fromJson(Map<String, dynamic>.from(m)))
               .toList();
           if (local != null) {
             local.messages.clear();
