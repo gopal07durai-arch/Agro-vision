@@ -34,6 +34,10 @@ class ApiService {
         if (!list.contains('http://localhost:8000')) {
           list.add('http://localhost:8000');
         }
+      } else {
+        if (!list.contains('http://10.0.2.2:8000')) {
+          list.add('http://10.0.2.2:8000');
+        }
       }
     }
     return list;
@@ -47,18 +51,22 @@ class ApiService {
       try {
         // Try root /health first
         final uriRoot = Uri.parse('$base/health');
+        debugPrint('[ApiService] Health check → $uriRoot');
         try {
           final res = await http
               .get(uriRoot)
               .timeout(ApiConfig.healthCheckTimeout);
+          debugPrint('[ApiService] Health check status: ${res.statusCode}');
           if (res.statusCode == 200) {
             return true;
           }
-        } catch (_) {
+        } catch (e) {
+          debugPrint('[ApiService] Health /health failed: $e');
           // Fallback to /api/v1/health
         }
 
         final uriV1 = Uri.parse('$base/api/v1/health');
+        debugPrint('[ApiService] Health check fallback → $uriV1');
         final response = await http
             .get(uriV1)
             .timeout(ApiConfig.healthCheckTimeout);
@@ -70,7 +78,8 @@ class ApiService {
             return true;
           }
         }
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[ApiService] Health check base=$base failed: $e');
         // Continue to fallback
       }
     }

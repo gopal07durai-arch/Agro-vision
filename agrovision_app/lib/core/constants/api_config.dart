@@ -17,8 +17,8 @@ class ApiConfig {
   /// in .env or update this constant.
   static const String defaultProductionBaseUrl = 'https://agrovision-ai.onrender.com';
 
-  /// Fallback URL (used if environment variable is not explicitly supplied).
-  static const String defaultDevelopmentBaseUrl = 'https://agrovision-ai.onrender.com';
+  /// Fallback URL for development mode (Android emulator default).
+  static const String defaultDevelopmentBaseUrl = 'http://10.0.2.2:8000';
 
   /// Web localhost fallback URL (used ONLY in web debug).
   static const String defaultWebBaseUrl = 'http://127.0.0.1:8000';
@@ -54,26 +54,29 @@ class ApiConfig {
 
   /// Current environment: 'production' in release mode, or explicit APP_ENV in .env.
   static String get environment {
+    if (kReleaseMode) return 'production';
     final env = dotenv.env['APP_ENV']?.toLowerCase().trim();
     if (env == 'production' || env == 'development') {
       return env!;
     }
-    return kReleaseMode ? 'production' : 'development';
+    return 'development';
   }
 
   /// Is the app running in production mode?
   static bool get isProduction => environment == 'production';
 
   /// Effective API Base URL.
-  /// Priority:
-  /// 1. Runtime custom URL (if configured)
-  /// 2. Explicit API_BASE_URL in .env
-  /// 3. In Web: web base URL
-  /// 4. In Release/Production: productionBaseUrl (HTTPS)
-  /// 5. In Debug/Development: developmentBaseUrl
   static String get baseUrl {
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) {
       return _customBaseUrl!;
+    }
+
+    if (kIsWeb) {
+      return dotenv.env['API_BASE_URL_WEB'] ?? defaultWebBaseUrl;
+    }
+
+    if (!isProduction) {
+      return developmentBaseUrl;
     }
 
     final explicit = dotenv.env['API_BASE_URL'];
@@ -81,21 +84,15 @@ class ApiConfig {
       return explicit.trim().replaceAll(RegExp(r'/+$'), '');
     }
 
-    if (kIsWeb) {
-      return dotenv.env['API_BASE_URL_WEB'] ?? defaultWebBaseUrl;
-    }
-
-    if (isProduction) {
-      return productionBaseUrl;
-    }
-
-    return developmentBaseUrl;
+    return productionBaseUrl;
   }
 
-  // ── Endpoints ─────────────────────────────────────────────────────────────
-  static String get predictEndpoint => '$baseUrl/api/v1/predict';
-  static String get healthEndpoint => '$baseUrl/api/v1/health';
-  static String get rootHealthEndpoint => '$baseUrl/health';
+  // ── Endpoints ─────────────────────────────────────────────────────────────────────────
+  static String get predictEndpoint => '\$baseUrl/api/v1/predict';
+  static String get healthEndpoint => '\$baseUrl/api/v1/health';
+  static String get rootHealthEndpoint => '\$baseUrl/health';
+  static String get chatEndpoint => '\$baseUrl/api/chat';
+  static String get chatHealthEndpoint => '\$baseUrl/api/chat/health';
 
   // ── Network Timeouts ──────────────────────────────────────────────────────
   /// Connect timeout (establishing connection to server)

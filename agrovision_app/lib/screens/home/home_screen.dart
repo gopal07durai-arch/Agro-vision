@@ -7,6 +7,7 @@ import '../scan/scan_screen.dart';
 import '../history/history_screen.dart';
 import '../about/about_screen.dart';
 import '../settings/settings_screen.dart';
+import '../assistant/chat_screen.dart';
 import '../../widgets/floating_leaf.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,12 +20,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
+  // Nav indices: 0=Home, 1=Scan(push), 2=Assistant(push), 3=History, 4=About
   int? _stackIndex(int navIndex) {
     switch (navIndex) {
-      case 0: return 0;
-      case 1: return null;
-      case 2: return 1;
-      case 3: return 2;
+      case 0: return 0; // Home
+      case 1: return null; // Scan — full screen push
+      case 2: return null; // Assistant — full screen push
+      case 3: return 1; // History
+      case 4: return 2; // About
       default: return 0;
     }
   }
@@ -33,6 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (navIndex == 1) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const ScanScreen()),
+      );
+      return;
+    }
+    if (navIndex == 2) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatScreen()),
       );
       return;
     }
@@ -61,8 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBottomNav(BuildContext context, bool isDark) {
     final l10n = AppLocalizations.of(context);
+    // selectedIndex excludes the push-only tabs (1=Scan, 2=Assistant)
+    final displayIndex = (_selectedIndex == 1 || _selectedIndex == 2) ? 0 : _selectedIndex;
     return NavigationBar(
-      selectedIndex: _selectedIndex == 1 ? 0 : _selectedIndex,
+      selectedIndex: displayIndex,
       onDestinationSelected: _onNavTap,
       backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -78,6 +89,11 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: const Icon(Icons.camera_alt_outlined),
           selectedIcon: const Icon(Icons.camera_alt_rounded, color: AppTheme.emeraldGreen),
           label: l10n.navScan,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.smart_toy_outlined),
+          selectedIcon: const Icon(Icons.smart_toy_rounded, color: AppTheme.emeraldGreen),
+          label: l10n.navAssistant,
         ),
         NavigationDestination(
           icon: const Icon(Icons.history_outlined),

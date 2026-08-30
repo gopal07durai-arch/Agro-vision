@@ -8,6 +8,8 @@ import '../../models/prediction_result.dart';
 import '../../models/recommendation_result.dart';
 import '../../services/supabase_service.dart';
 import '../scan/scan_screen.dart';
+import '../assistant/chat_screen.dart';
+import '../../models/chat_conversation.dart';
 import '../../widgets/confidence_gauge.dart';
 import '../../widgets/star_rating.dart';
 import '../../widgets/leaf_image_view.dart';
@@ -1581,6 +1583,37 @@ class _ResultScreenState extends State<ResultScreen>
               label: Text(l10n.scanAgain),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.emeraldGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final scanCtx = ScanContext(
+                  crop: widget.result.crop,
+                  disease: widget.result.disease,
+                  severity: widget.result.severity,
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen(scanContext: scanCtx),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.smart_toy_rounded, size: 16),
+              label: Text(l10n.askAboutScan),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(

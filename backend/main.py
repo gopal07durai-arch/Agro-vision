@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from api.predict import router as predict_router
+from api.chat import router as chat_router
 from model.model_loader import load_model
 
 # ─────────────────────────────────────────────
@@ -102,6 +103,7 @@ app.state.startup_state = startup_state
 # Routes
 # ─────────────────────────────────────────────
 app.include_router(predict_router, prefix="/api/v1", tags=["prediction"])
+app.include_router(chat_router, prefix="/api", tags=["chat"])
 
 
 @app.get("/health", tags=["health"])
