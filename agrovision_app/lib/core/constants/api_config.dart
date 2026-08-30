@@ -88,11 +88,14 @@ class ApiConfig {
   }
 
   // ── Endpoints ─────────────────────────────────────────────────────────────────────────
-  static String get predictEndpoint => '\$baseUrl/api/v1/predict';
-  static String get healthEndpoint => '\$baseUrl/api/v1/health';
-  static String get rootHealthEndpoint => '\$baseUrl/health';
-  static String get chatEndpoint => '\$baseUrl/api/chat';
-  static String get chatHealthEndpoint => '\$baseUrl/api/chat/health';
+  static String get predictEndpoint => '$baseUrl/api/v1/predict';
+  static String get healthEndpoint => '$baseUrl/api/v1/health';
+  static String get rootHealthEndpoint => '$baseUrl/health';
+  static String get chatEndpoint => '$baseUrl/api/chat';
+  static String get aiChatEndpoint => '$baseUrl/api/ai/chat';
+  static String get cropDiseaseEndpoint => '$baseUrl/api/ai/crop-disease';
+  static String get chatHealthEndpoint => '$baseUrl/api/chat/health';
+  static String get aiHealthEndpoint => '$baseUrl/api/ai/health';
 
   // ── Network Timeouts ──────────────────────────────────────────────────────
   /// Connect timeout (establishing connection to server)

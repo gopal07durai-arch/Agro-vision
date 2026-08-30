@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -16,7 +15,15 @@ import '../../services/chat_supabase_service.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 class ChatScreen extends StatefulWidget {
   final ScanContext? scanContext;
-  const ChatScreen({super.key, this.scanContext});
+  final String? initialMessage;
+  final ChatConversation? existingConversation;
+
+  const ChatScreen({
+    super.key,
+    this.scanContext,
+    this.initialMessage,
+    this.existingConversation,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -36,11 +43,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    final langCode = context.read<AppProvider>().languageCode;
-    _conversation = ChatConversation.create(langCode);
+    if (widget.existingConversation != null) {
+      _conversation = widget.existingConversation!;
+      _showSuggestions = _conversation.messages.isEmpty;
+    } else {
+      final langCode = context.read<AppProvider>().languageCode;
+      _conversation = ChatConversation.create(langCode);
+    }
+
     if (widget.scanContext != null) {
       _showSuggestions = false;
       WidgetsBinding.instance.addPostFrameCallback((_) => _sendContextIntro());
+    } else if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
+      _showSuggestions = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _sendMessage(widget.initialMessage!));
     }
   }
 

@@ -7,7 +7,7 @@ import '../scan/scan_screen.dart';
 import '../history/history_screen.dart';
 import '../about/about_screen.dart';
 import '../settings/settings_screen.dart';
-import '../assistant/chat_screen.dart';
+import '../assistant/assistant_home_screen.dart';
 import '../../widgets/floating_leaf.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (navIndex == 2) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ChatScreen()),
+        MaterialPageRoute(builder: (_) => const AssistantHomeScreen()),
       );
       return;
     }
@@ -139,11 +139,13 @@ class _HomeTab extends StatelessWidget {
                     _buildAppBar(context, isDark),
                     const SizedBox(height: 32),
                     _buildHeroSection(context),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     _buildScanButtons(context),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    _buildAssistantBanner(context, isDark),
+                    const SizedBox(height: 28),
                     _buildFeatureCards(context, isDark),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     _buildSupportedCrops(context, isDark),
                     const SizedBox(height: 40),
                   ],
@@ -154,6 +156,130 @@ class _HomeTab extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildAssistantBanner(BuildContext context, bool isDark) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+              : [const Color(0xFFECFDF5), const Color(0xFFD1FAE5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFA7F3D0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AssistantHomeScreen()),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.emeraldGreen, AppTheme.emeraldDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.emeraldGreen.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              l10n.homeAiBannerTitle,
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: isDark ? Colors.white : const Color(0xFF065F46),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emeraldGreen,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'AI',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.homeAiBannerDesc,
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          color: isDark ? Colors.white60 : const Color(0xFF047857),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppTheme.emeraldGreen,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate(delay: 450.ms).slideY(begin: 0.1).fadeIn();
   }
 
   Widget _buildAppBar(BuildContext context, bool isDark) {

@@ -69,68 +69,80 @@ class ChatService {
     };
 
     for (final base in _candidateUrls) {
-      final uri = Uri.parse('$base/api/chat');
-      debugPrint('[ChatService] Sending message to $uri');
+      // Try /api/ai/chat first, fallback to /api/chat
+      for (final path in ['/api/ai/chat', '/api/chat']) {
+        final uri = Uri.parse('$base$path');
+        debugPrint('[ChatService] Sending message to $uri');
 
-      try {
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-              body: jsonEncode(body),
-            )
-            .timeout(_timeout);
+        try {
+          final response = await http
+              .post(
+                uri,
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                body: jsonEncode(body),
+              )
+              .timeout(_timeout);
 
-        debugPrint('[ChatService] Status: ${response.statusCode}');
-        final data = _parseJson(response.body);
+          debugPrint('[ChatService] Status: ${response.statusCode}');
+          final data = _parseJson(response.body);
 
-        if (response.statusCode == 200 && data['success'] == true) {
-          return {
-            'success': true,
-            'conversation_id': data['conversation_id'] as String? ?? '',
-            'answer': data['answer'] as String? ?? '',
-            'language': data['language'] as String? ?? language,
-          };
+          if (response.statusCode == 200 && data['success'] == true) {
+            final ans = (data['answer'] ?? data['response']) as String? ?? '';
+            return {
+              'success': true,
+              'conversation_id': data['conversation_id'] as String? ?? '',
+              'answer': ans,
+              'response': ans,
+              'language': data['language'] as String? ?? language,
+            };
+          }
+
+          // If 404 on /api/ai/chat, try /api/chat
+          if (response.statusCode == 404 && path == '/api/ai/chat') {
+            continue;
+          }
+
+          // If this URL gave a 502/503 (Render sleeping), continue to local fallback
+          if (response.statusCode >= 500 && _candidateUrls.length > 1 && base != _candidateUrls.last) {
+            debugPrint('[ChatService] Server returned ${response.statusCode}, trying fallback...');
+            break;
+          }
+
+          final errorCode = data['error_code'] as String? ?? 'SERVER_ERROR';
+          final errorMsg = data['message'] as String? ?? 'Service temporarily unavailable. Please try again.';
+          return {'success': false, 'error_code': errorCode, 'message': errorMsg};
+
+        } on SocketException catch (e) {
+          debugPrint('[ChatService] SocketException on $base: $e');
+          if (base != _candidateUrls.last) break;
+          return {'success': false, 'error_code': 'NETWORK_ERROR', 'message': 'No internet connection. Please check your connection and try again.'};
+        } on TimeoutException {
+          if (base != _candidateUrls.last) break;
+          return {'success': false, 'error_code': 'TIMEOUT', 'message': 'AI response timed out. Please try again.'};
+        } catch (e) {
+          debugPrint('[ChatService] Error on $base: $e');
+          if (base != _candidateUrls.last) break;
+          return {'success': false, 'error_code': 'SERVER_ERROR', 'message': 'An unexpected error occurred. Please try again.'};
         }
-
-        // If this URL gave a 502/503 (Render sleeping), continue to local fallback
-        if (response.statusCode >= 500 && _candidateUrls.length > 1 && base != _candidateUrls.last) {
-          debugPrint('[ChatService] Server returned ${response.statusCode}, trying fallback...');
-          continue;
-        }
-
-        final errorCode = data['error_code'] as String? ?? 'SERVER_ERROR';
-        final errorMsg = data['message'] as String? ?? 'Service temporarily unavailable. Please try again.';
-        return {'success': false, 'error_code': errorCode, 'message': errorMsg};
-
-      } on SocketException catch (e) {
-        debugPrint('[ChatService] SocketException on $base: $e');
-        if (base != _candidateUrls.last) continue;
-        return {'success': false, 'error_code': 'NETWORK_ERROR', 'message': 'Cannot reach AI Assistant server.'};
-      } on TimeoutException {
-        if (base != _candidateUrls.last) continue;
-        return {'success': false, 'error_code': 'TIMEOUT', 'message': 'Request timed out. Please try again.'};
-      } catch (e) {
-        debugPrint('[ChatService] Error on $base: $e');
-        if (base != _candidateUrls.last) continue;
-        return {'success': false, 'error_code': 'SERVER_ERROR', 'message': 'An unexpected error occurred: $e'};
       }
     }
 
-    return {'success': false, 'error_code': 'NETWORK_ERROR', 'message': 'Could not reach AI server.'};
+    return {'success': false, 'error_code': 'NETWORK_ERROR', 'message': 'Could not reach AI server. Please check your internet connection.'};
   }
 
   Future<bool> checkChatHealth() async {
     for (final base in _candidateUrls) {
-      try {
-        final response = await http
-            .get(Uri.parse('$base/api/chat/health'))
-            .timeout(const Duration(seconds: 5));
-        if (response.statusCode == 200) {
-          final data = _parseJson(response.body);
-          return data['chat_configured'] as bool? ?? false;
-        }
-      } catch (_) {}
+      for (final path in ['/api/ai/health', '/api/chat/health']) {
+        try {
+          final response = await http
+              .get(Uri.parse('$base$path'))
+              .timeout(const Duration(seconds: 5));
+          if (response.statusCode == 200) {
+            final data = _parseJson(response.body);
+            return data['chat_configured'] as bool? ?? false;
+          }
+        } catch (_) {}
+      }
     }
     return false;
   }
@@ -143,4 +155,3 @@ class ChatService {
     return {};
   }
 }
-

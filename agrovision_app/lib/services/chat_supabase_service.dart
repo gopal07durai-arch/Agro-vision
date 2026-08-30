@@ -17,6 +17,7 @@ class ChatSupabaseService {
   }
 
   bool get isAvailable => _client != null;
+  bool get isConfigured => _client != null;
 
   // ── Save a conversation (create or update) ──────────────────────────────
 
@@ -72,8 +73,8 @@ class ChatSupabaseService {
             .select()
             .eq('conversation_id', id)
             .order('created_at', ascending: true);
-        if (msgs != null && (msgs as List).isNotEmpty) {
-          final remoteMessages = (msgs as List)
+        if (msgs is List && msgs.isNotEmpty) {
+          final remoteMessages = msgs
               .map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
               .toList();
           if (local != null) {
@@ -93,6 +94,14 @@ class ChatSupabaseService {
 
   Future<List<ChatConversation>> listConversations(String sessionId) async {
     return await _loadAllLocalConversations();
+  }
+
+  Future<List<ChatConversation>> getAllConversations({int limit = 10}) async {
+    final all = await _loadAllLocalConversations();
+    if (all.length > limit) {
+      return all.take(limit).toList();
+    }
+    return all;
   }
 
   // ── Delete conversation ─────────────────────────────────────────────────
